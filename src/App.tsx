@@ -31,23 +31,20 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        const isOwnerEmail = firebaseUser.email?.toLowerCase() === 'juanrael@gmail.com';
         let userData = await firebaseService.getUser(firebaseUser.uid);
         if (!userData) {
-          // New user creation
-          const isOwnerEmail = firebaseUser.email?.toLowerCase() === 'juanrael@gmail.com';
           const newUser: User = {
             uid: firebaseUser.uid,
             name: firebaseUser.displayName || 'Anonymous',
             email: firebaseUser.email || '',
-            role: 'Teacher', // Default to Teacher for this specific user group
+            role: isOwnerEmail ? 'Admin' : 'Collaborator',
             photoURL: firebaseUser.photoURL || undefined
           };
           await firebaseService.createUser(newUser);
           userData = newUser;
-        } else if (firebaseUser.email?.toLowerCase() === 'juanrael@gmail.com' && userData.role !== 'Teacher') {
-          // Force update for existing owner if role is wrong
-          console.log('Elevating user to Teacher role');
-          userData.role = 'Teacher';
+        } else if (isOwnerEmail && userData.role !== 'Admin') {
+          userData.role = 'Admin';
           await firebaseService.createUser(userData);
         }
         setUser(userData);
@@ -61,9 +58,9 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      firebaseService.getAllUsers().then(setUsers);
-    }
+    if (!user) return;
+    const unsubscribe = firebaseService.subscribeUsers(setUsers);
+    return () => unsubscribe();
   }, [user]);
 
   const handleLogin = async () => {

@@ -1,4 +1,4 @@
-export type UserRole = 'Teacher' | 'Collaborator';
+export type UserRole = 'Admin' | 'Teacher' | 'Collaborator';
 
 export interface User {
   uid: string;
@@ -28,6 +28,7 @@ export interface Task {
   description: string;
   weight: number;
   status: TaskStatus;
+  color?: string;
   assignedTo?: string;
   finishedBy?: string;
   createdBy: string;

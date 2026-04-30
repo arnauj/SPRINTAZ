@@ -67,6 +67,28 @@ export const firebaseService = {
     }
   },
 
+  subscribeUsers(callback: (users: User[]) => void) {
+    return onSnapshot(collection(db, 'users'), (snapshot) => {
+      callback(snapshot.docs.map(doc => doc.data() as User));
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'users'));
+  },
+
+  async deleteUser(uid: string) {
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `users/${uid}`);
+    }
+  },
+
+  async updateUserRole(uid: string, role: User['role']) {
+    try {
+      await updateDoc(doc(db, 'users', uid), { role });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
+    }
+  },
+
   // --- Sprints ---
   async createSprint(sprint: Omit<Sprint, 'id' | 'createdAt' | 'updatedAt'>) {
     try {
@@ -86,6 +108,14 @@ export const firebaseService = {
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sprint)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));
+  },
+
+  async deleteSprint(sprintId: string) {
+    try {
+      await deleteDoc(doc(db, 'sprints', sprintId));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `sprints/${sprintId}`);
+    }
   },
 
   // --- Tasks ---

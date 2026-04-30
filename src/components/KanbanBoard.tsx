@@ -1,7 +1,7 @@
 import { useState, useEffect, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus } from '../types';
-import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle, Trash2, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 
@@ -79,6 +79,7 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   useEffect(() => {
     const unsubscribe = firebaseService.subscribeTasks(sprint.id, setTasks);
@@ -131,8 +132,12 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
     await firebaseService.deleteTask(task.id);
   };
 
-  const canDelete = (task: Task) => {
-    return currentUser.role === 'Teacher' || task.createdBy === currentUser.uid;
+  const handleEdit = (task: Task) => {
+    setEditingTask(task);
+  };
+
+  const canModify = (task: Task) => {
+    return currentUser.role === 'Admin' || currentUser.role === 'Teacher' || task.createdBy === currentUser.uid;
   };
 
   const getTasksByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
@@ -188,10 +193,11 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
                       task={task}
                       users={users}
                       column={column}
-                      canDelete={canDelete(task)}
+                      canModify={canModify(task)}
                       onDragStart={(e) => handleDragStart(e, task)}
                       onStatusChange={(status) => handleStatusChange(task, status)}
                       onDelete={() => handleDelete(task)}
+                      onEdit={() => handleEdit(task)}
                     />
                   ))}
                 </AnimatePresence>
@@ -206,12 +212,16 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
         })}
       </div>
 
-      <CreateTaskModal 
-        isOpen={showCreateModal} 
-        onClose={() => setShowCreateModal(false)}
+      <CreateTaskModal
+        isOpen={showCreateModal || editingTask !== null}
+        onClose={() => {
+          setShowCreateModal(false);
+          setEditingTask(null);
+        }}
         sprintId={sprint.id}
         initialStatus={pendingStatus}
         currentUser={currentUser}
+        editingTask={editingTask}
       />
     </div>
   );
@@ -222,13 +232,14 @@ interface TaskCardProps {
   task: Task;
   users: User[];
   column: ColumnConfig;
-  canDelete: boolean;
+  canModify: boolean;
   onDragStart: (e: DragEvent) => void;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+  onEdit: () => void;
 }
 
-function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange, onDelete }: TaskCardProps) {
+function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -245,7 +256,11 @@ function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange,
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -2 }}
-      style={{ zIndex: showOptions ? 50 : 'auto' }}
+      style={{
+        zIndex: showOptions ? 50 : 'auto',
+        borderLeftColor: task.color || undefined,
+        borderLeftWidth: task.color ? '4px' : undefined,
+      }}
       className={`p-3 rounded-xl border transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${column.cardBorder} hover:border-opacity-60`}
     >
       <div className="flex justify-between items-start mb-2 gap-2">
@@ -271,6 +286,18 @@ function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange,
                   exit={{ opacity: 0, y: 5 }}
                   className="absolute right-0 top-8 w-36 bg-bento-card border border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
                 >
+                  {canModify && (
+                    <button
+                      onClick={() => {
+                        onEdit();
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-300 hover:text-white hover:bg-slate-800 border-b border-bento-border cursor-pointer flex items-center gap-2"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      Editar
+                    </button>
+                  )}
                   {COLUMNS.filter(c => c.id !== task.status).map(col => (
                     <button
                       key={col.id}
@@ -283,7 +310,7 @@ function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange,
                       → {col.label}
                     </button>
                   ))}
-                  {canDelete && (
+                  {canModify && (
                     <button
                       onClick={() => {
                         onDelete();

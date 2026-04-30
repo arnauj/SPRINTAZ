@@ -2,12 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Sprint, UserRole, User } from '../types';
 import { auth } from '../lib/firebase';
-import { Plus, Target, Calendar } from 'lucide-react';
+import { Plus, Trash2, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+
+const ROLE_LABELS: Record<UserRole, string> = {
+  Admin: 'Administrador',
+  Teacher: 'Profesor Titular',
+  Collaborator: 'Colaborador',
+};
+
+const ROLE_COLORS: Record<UserRole, { bg: string; text: string }> = {
+  Admin: { bg: 'bg-red-500 ring-red-500', text: 'text-red-400' },
+  Teacher: { bg: 'bg-orange-500 ring-orange-500', text: 'text-orange-400' },
+  Collaborator: { bg: 'bg-blue-500 ring-blue-500', text: 'text-blue-400' },
+};
 
 interface SprintSidebarProps {
   activeSprint: Sprint | null;
-  onSelectSprint: (sprint: Sprint) => void;
+  onSelectSprint: (sprint: Sprint | null) => void;
   userRole: UserRole;
   users: User[];
 }
@@ -36,7 +48,27 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
     setShowCreateModal(false);
   };
 
-  const isTeacher = userRole === 'Teacher' || auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
+  const isOwnerEmail = auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
+  const isAdmin = userRole === 'Admin' || isOwnerEmail;
+  const canManageSprints = isAdmin || userRole === 'Teacher';
+
+  const handleDeleteUser = async (target: User) => {
+    if (!confirm(`¿Eliminar al usuario "${target.name}"? Esta acción no se puede deshacer.`)) return;
+    await firebaseService.deleteUser(target.uid);
+  };
+
+  const handleDeleteSprint = async (sprint: Sprint) => {
+    if (!confirm(`¿Eliminar el sprint "${sprint.name}"? Las tareas asociadas quedarán huérfanas.`)) return;
+    await firebaseService.deleteSprint(sprint.id);
+    if (activeSprint?.id === sprint.id) {
+      onSelectSprint(null);
+    }
+  };
+
+  const handleChangeRole = async (target: User, newRole: UserRole) => {
+    if (target.role === newRole) return;
+    await firebaseService.updateUserRole(target.uid, newRole);
+  };
 
   return (
     <aside className="w-72 flex flex-col gap-6 shrink-0 h-full">
@@ -44,8 +76,8 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
       <div className="bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col min-h-0 shadow-lg shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest">SPRINTAZ / Sprints</h2>
-          {isTeacher && (
-            <button 
+          {canManageSprints && (
+            <button
               onClick={() => setShowCreateModal(true)}
               className="p-1 hover:bg-slate-800 rounded transition-colors text-slate-400 cursor-pointer"
             >
@@ -56,54 +88,97 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
         
         <div className="flex flex-col gap-2 overflow-y-auto max-h-64 pr-2 custom-scrollbar">
           {sprints.map((sprint) => (
-            <button
+            <div
               key={sprint.id}
               onClick={() => onSelectSprint(sprint)}
-              className={`p-3 rounded-xl border text-left transition-all ${
-                activeSprint?.id === sprint.id 
-                  ? 'bg-indigo-500/10 border-indigo-500/30' 
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer group ${
+                activeSprint?.id === sprint.id
+                  ? 'bg-indigo-500/10 border-indigo-500/30'
                   : 'bg-slate-800/20 border-slate-700/50 hover:bg-slate-800/40'
               }`}
             >
-              <div className="flex justify-between items-center mb-1">
-                <span className={`font-bold text-sm ${activeSprint?.id === sprint.id ? 'text-indigo-400' : 'text-slate-300'}`}>
+              <div className="flex justify-between items-center mb-1 gap-2">
+                <span className={`font-bold text-sm truncate ${activeSprint?.id === sprint.id ? 'text-indigo-400' : 'text-slate-300'}`}>
                   {sprint.name}
                 </span>
-                {sprint.isActive && (
-                  <span className="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter">Activo</span>
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {sprint.isActive && (
+                    <span className="text-[9px] bg-indigo-500 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter">Activo</span>
+                  )}
+                  {canManageSprints && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSprint(sprint);
+                      }}
+                      className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-all cursor-pointer"
+                      title="Eliminar sprint"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-[10px] text-slate-500 italic">Creado recientemente</p>
-            </button>
+            </div>
           ))}
         </div>
       </div>
 
       {/* Team Bento */}
       <div className="bg-bento-card border border-bento-border rounded-2xl p-5 flex-1 flex flex-col shadow-lg overflow-hidden shrink-0">
-        <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest mb-4">Equipo Docente</h2>
-        <div className="flex flex-col gap-4 overflow-y-auto pr-2 custom-scrollbar">
-          {users.map(user => (
-            <div key={user.uid} className="flex items-center gap-3">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ring-2 ring-opacity-20 ${
-                user.role === 'Teacher' ? 'bg-orange-500 ring-orange-500 text-white' : 'bg-blue-500 ring-blue-500 text-white'
-              }`}>
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="" className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  user.name.substring(0, 2).toUpperCase()
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Equipo</h2>
+          {isAdmin && (
+            <span className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-widest text-red-400">
+              <Shield className="w-3 h-3" />
+              Admin
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 overflow-y-auto pr-2 custom-scrollbar">
+          {users.map(u => {
+            const colors = ROLE_COLORS[u.role] || ROLE_COLORS.Collaborator;
+            const isSelf = u.uid === auth.currentUser?.uid;
+            return (
+              <div key={u.uid} className="flex items-center gap-3 group">
+                <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ring-2 ring-opacity-20 ${colors.bg} text-white`}>
+                  {u.photoURL ? (
+                    <img src={u.photoURL} alt="" className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    u.name.substring(0, 2).toUpperCase()
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-slate-200 truncate">{u.name}</p>
+                  {isAdmin && !isSelf ? (
+                    <select
+                      value={u.role}
+                      onChange={(e) => handleChangeRole(u, e.target.value as UserRole)}
+                      className={`text-[9px] uppercase font-bold tracking-wider bg-transparent border-none outline-none cursor-pointer ${colors.text} hover:opacity-80`}
+                    >
+                      <option value="Admin" className="bg-slate-800">Administrador</option>
+                      <option value="Teacher" className="bg-slate-800">Profesor Titular</option>
+                      <option value="Collaborator" className="bg-slate-800">Colaborador</option>
+                    </select>
+                  ) : (
+                    <p className={`text-[9px] uppercase font-bold tracking-wider ${colors.text}`}>
+                      {ROLE_LABELS[u.role] || u.role}
+                    </p>
+                  )}
+                </div>
+                {isAdmin && !isSelf && (
+                  <button
+                    onClick={() => handleDeleteUser(u)}
+                    className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-500/20 rounded text-slate-500 hover:text-red-400 transition-all cursor-pointer shrink-0"
+                    title="Eliminar usuario"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 )}
               </div>
-              <div className="min-w-0">
-                <p className="text-sm font-bold text-slate-200 truncate">{user.name}</p>
-                <p className={`text-[9px] uppercase font-bold tracking-wider ${
-                  user.role === 'Teacher' ? 'text-orange-400' : 'text-blue-400'
-                }`}>
-                  {user.role === 'Teacher' ? 'Profesor Titular' : 'Colaborador'}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

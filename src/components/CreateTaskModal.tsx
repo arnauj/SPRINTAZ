@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { TaskStatus, User } from '../types';
-import { X } from 'lucide-react';
+import { Task, TaskStatus, User } from '../types';
+import { X, Check, Ban } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -11,19 +11,51 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: 'Done',
 };
 
+const COLOR_OPTIONS: { value: string | null; label: string }[] = [
+  { value: null, label: 'Sin color' },
+  { value: '#ef4444', label: 'Rojo' },
+  { value: '#f97316', label: 'Naranja' },
+  { value: '#eab308', label: 'Amarillo' },
+  { value: '#22c55e', label: 'Verde' },
+  { value: '#06b6d4', label: 'Cian' },
+  { value: '#6366f1', label: 'Índigo' },
+  { value: '#a855f7', label: 'Violeta' },
+  { value: '#ec4899', label: 'Rosa' },
+];
+
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   sprintId: string;
   initialStatus: TaskStatus;
   currentUser: User;
+  editingTask?: Task | null;
 }
 
-export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser }: CreateTaskModalProps) {
+export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser, editingTask }: CreateTaskModalProps) {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState(1);
   const [description, setDescription] = useState('');
+  const [color, setColor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isEditMode = !!editingTask;
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingTask) {
+        setName(editingTask.name);
+        setWeight(editingTask.weight);
+        setDescription(editingTask.description || '');
+        setColor(editingTask.color || null);
+      } else {
+        setName('');
+        setWeight(1);
+        setDescription('');
+        setColor(null);
+      }
+    }
+  }, [isOpen, editingTask]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,17 +63,24 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
 
     setSubmitting(true);
     try {
-      await firebaseService.createTask({
-        name,
-        description,
-        weight,
-        status: initialStatus,
-        sprintId,
-        createdBy: currentUser.uid
-      });
-      setName('');
-      setWeight(1);
-      setDescription('');
+      if (editingTask) {
+        await firebaseService.updateTask(editingTask.id, {
+          name,
+          description,
+          weight,
+          color: color || '',
+        });
+      } else {
+        await firebaseService.createTask({
+          name,
+          description,
+          weight,
+          status: initialStatus,
+          sprintId,
+          createdBy: currentUser.uid,
+          ...(color ? { color } : {}),
+        });
+      }
       onClose();
     } finally {
       setSubmitting(false);
@@ -56,13 +95,15 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="bg-bento-card border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden"
+            className="bg-bento-card border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <button onClick={onClose} className="absolute top-6 right-6 p-2 hover:bg-slate-800 rounded-full transition-colors">
               <X className="w-5 h-5 text-slate-500" />
             </button>
 
-            <h3 className="text-2xl font-bold tracking-tight mb-8 text-white">Nueva Tarea</h3>
+            <h3 className="text-2xl font-bold tracking-tight mb-8 text-white">
+              {isEditMode ? 'Editar Tarea' : 'Nueva Tarea'}
+            </h3>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
@@ -93,8 +134,35 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Estado</label>
                   <div className="w-full px-5 py-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center h-full">
-                    {STATUS_LABELS[initialStatus]}
+                    {STATUS_LABELS[editingTask?.status || initialStatus]}
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_OPTIONS.map((opt) => {
+                    const isSelected = color === opt.value;
+                    return (
+                      <button
+                        key={opt.value || 'none'}
+                        type="button"
+                        onClick={() => setColor(opt.value)}
+                        title={opt.label}
+                        className={`w-9 h-9 rounded-xl border-2 transition-all flex items-center justify-center cursor-pointer hover:scale-110 ${
+                          isSelected ? 'border-white shadow-lg scale-110' : 'border-slate-700'
+                        }`}
+                        style={{ backgroundColor: opt.value || 'transparent' }}
+                      >
+                        {opt.value === null ? (
+                          <Ban className="w-4 h-4 text-slate-500" />
+                        ) : isSelected ? (
+                          <Check className="w-4 h-4 text-white" />
+                        ) : null}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -122,7 +190,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                   disabled={submitting}
                   className="flex-1 py-4 bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                 >
-                  {submitting ? 'Añadiendo...' : 'Listo'}
+                  {submitting ? 'Guardando...' : isEditMode ? 'Guardar' : 'Listo'}
                 </button>
               </div>
             </form>

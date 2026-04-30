@@ -259,7 +259,9 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       style={{
         zIndex: showOptions ? 50 : 'auto',
         borderLeftColor: task.color || undefined,
-        borderLeftWidth: task.color ? '4px' : undefined,
+        borderLeftWidth: task.color ? '6px' : undefined,
+        backgroundColor: task.color ? `${task.color}15` : undefined,
+        boxShadow: task.color ? `0 4px 12px ${task.color}20` : undefined,
       }}
       className={`p-3 rounded-xl border transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${column.cardBorder} hover:border-opacity-60`}
     >

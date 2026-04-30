@@ -37,6 +37,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   const [weight, setWeight] = useState(1);
   const [description, setDescription] = useState('');
   const [color, setColor] = useState<string | null>(null);
+  const [customColor, setCustomColor] = useState('#6366f1');
   const [submitting, setSubmitting] = useState(false);
 
   const isEditMode = !!editingTask;
@@ -48,6 +49,11 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
         setWeight(editingTask.weight);
         setDescription(editingTask.description || '');
         setColor(editingTask.color || null);
+        
+        // Si el color de la tarea no está en los presets, lo ponemos como custom
+        if (editingTask.color && !COLOR_OPTIONS.find(opt => opt.value === editingTask.color)) {
+          setCustomColor(editingTask.color);
+        }
       } else {
         setName('');
         setWeight(1);
@@ -56,6 +62,8 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
       }
     }
   }, [isOpen, editingTask]);
+
+  const isCustomColorActive = color !== null && !COLOR_OPTIONS.find(opt => opt.value === color);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,6 +171,30 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                       </button>
                     );
                   })}
+
+                  <div className="relative">
+                    <input
+                      type="color"
+                      id="customColor"
+                      className="sr-only"
+                      value={customColor}
+                      onChange={(e) => {
+                        setCustomColor(e.target.value);
+                        setColor(e.target.value);
+                      }}
+                    />
+                    <label
+                      htmlFor="customColor"
+                      className={`w-9 h-9 rounded-xl border-2 transition-all flex items-center justify-center cursor-pointer hover:scale-110 ${
+                        isCustomColorActive ? 'border-white shadow-lg scale-110' : 'border-slate-700'
+                      }`}
+                      style={{ backgroundColor: customColor }}
+                      title="Color personalizado"
+                    >
+                      {isCustomColorActive && <Check className="w-4 h-4 text-white" />}
+                      {!isCustomColorActive && <div className="w-4 h-4 rounded-full border border-white/20 bg-gradient-to-br from-white/10 to-transparent" />}
+                    </label>
+                  </div>
                 </div>
               </div>
 

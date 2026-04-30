@@ -113,6 +113,14 @@ export const firebaseService = {
     }
   },
 
+  async deleteTask(taskId: string) {
+    try {
+      await deleteDoc(doc(db, 'tasks', taskId));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `tasks/${taskId}`);
+    }
+  },
+
   subscribeTasks(sprintId: string, callback: (tasks: Task[]) => void) {
     const q = query(
       collection(db, 'tasks'), 

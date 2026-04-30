@@ -74,7 +74,7 @@ service cloud.firestore {
         // Action: Edit Task Details
         (request.resource.data.diff(resource.data).affectedKeys().hasAll(['name', 'weight', 'description']) && (isTeacher() || resource.data.createdBy == request.auth.uid))
       );
-      allow delete: if isTeacher();
+      allow delete: if isTeacher() || resource.data.createdBy == request.auth.uid;
     }
 
     // --- Notifications ---

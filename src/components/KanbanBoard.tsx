@@ -1,7 +1,7 @@
 import { useState, useEffect, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus } from '../types';
-import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle } from 'lucide-react';
+import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 
@@ -126,6 +126,15 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
     }
   };
 
+  const handleDelete = async (task: Task) => {
+    if (!confirm(`¿Eliminar la tarea "${task.name}"? Esta acción no se puede deshacer.`)) return;
+    await firebaseService.deleteTask(task.id);
+  };
+
+  const canDelete = (task: Task) => {
+    return currentUser.role === 'Teacher' || task.createdBy === currentUser.uid;
+  };
+
   const getTasksByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
 
   return (
@@ -178,8 +187,10 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
                       task={task}
                       users={users}
                       column={column}
+                      canDelete={canDelete(task)}
                       onDragStart={(e) => handleDragStart(e, task)}
                       onStatusChange={(status) => handleStatusChange(task, status)}
+                      onDelete={() => handleDelete(task)}
                     />
                   ))}
                 </AnimatePresence>
@@ -210,11 +221,13 @@ interface TaskCardProps {
   task: Task;
   users: User[];
   column: ColumnConfig;
+  canDelete: boolean;
   onDragStart: (e: DragEvent) => void;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
 }
 
-function TaskCard({ task, users, column, onDragStart, onStatusChange }: TaskCardProps) {
+function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange, onDelete }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -263,11 +276,23 @@ function TaskCard({ task, users, column, onDragStart, onStatusChange }: TaskCard
                         onStatusChange(col.id);
                         setShowOptions(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-400 hover:text-white hover:bg-slate-800 border-b last:border-0 border-bento-border cursor-pointer"
+                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-400 hover:text-white hover:bg-slate-800 border-b border-bento-border cursor-pointer"
                     >
                       → {col.label}
                     </button>
                   ))}
+                  {canDelete && (
+                    <button
+                      onClick={() => {
+                        onDelete();
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-red-400 hover:text-white hover:bg-red-600/80 cursor-pointer flex items-center gap-2"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Eliminar
+                    </button>
+                  )}
                 </motion.div>
               </>
             )}

@@ -27,7 +27,7 @@ interface ColumnConfig {
 const COLUMNS: ColumnConfig[] = [
   {
     id: 'backlog',
-    label: 'Reserva',
+    label: 'Backlog',
     icon: Inbox,
     bgClass: 'bg-slate-500/[0.06]',
     borderClass: 'border-slate-500/20',
@@ -39,7 +39,7 @@ const COLUMNS: ColumnConfig[] = [
   },
   {
     id: 'todo',
-    label: 'Por hacer',
+    label: 'To do',
     icon: Clock,
     bgClass: 'bg-amber-500/[0.08]',
     borderClass: 'border-amber-500/25',
@@ -51,7 +51,7 @@ const COLUMNS: ColumnConfig[] = [
   },
   {
     id: 'in_progress',
-    label: 'En curso',
+    label: 'In progress',
     icon: PlayCircle,
     bgClass: 'bg-indigo-500/[0.08]',
     borderClass: 'border-indigo-500/25',
@@ -63,7 +63,7 @@ const COLUMNS: ColumnConfig[] = [
   },
   {
     id: 'done',
-    label: 'Hecho',
+    label: 'Done',
     icon: CheckCircle2,
     bgClass: 'bg-emerald-500/[0.06]',
     borderClass: 'border-emerald-500/20',
@@ -139,31 +139,32 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
 
   return (
     <div className="h-full flex flex-col">
-      <header className="flex items-center justify-between mb-8 px-2">
-        <div>
-          <h3 className="text-2xl font-bold tracking-tight">Tablero Kanban</h3>
-          <p className="text-sm text-slate-500">Gestión de tareas en tiempo real.</p>
+      <header className="flex items-center justify-between mb-4 md:mb-8 px-2 gap-2">
+        <div className="min-w-0">
+          <h3 className="text-lg md:text-2xl font-bold tracking-tight truncate">Tablero Kanban</h3>
+          <p className="text-xs md:text-sm text-slate-500 hidden sm:block">Gestión de tareas en tiempo real.</p>
         </div>
         <button
           onClick={() => {
             setPendingStatus('todo');
             setShowCreateModal(true);
           }}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 cursor-pointer"
+          className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Nueva Tarea</span>
+          <span className="hidden sm:inline">Nueva Tarea</span>
+          <span className="sm:hidden">Nueva</span>
         </button>
       </header>
 
-      <div className="flex-1 grid grid-cols-4 gap-4 h-full min-h-0">
+      <div className="flex-1 flex md:grid md:grid-cols-4 gap-3 md:gap-4 h-full min-h-0 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-2 md:pb-0">
         {COLUMNS.map((column) => {
           const Icon = column.icon;
           const count = getTasksByStatus(column.id).length;
           return (
             <div
               key={column.id}
-              className={`flex flex-col min-h-0 rounded-2xl border ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden`}
+              className={`flex flex-col min-h-0 rounded-2xl border ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >

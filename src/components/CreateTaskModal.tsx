@@ -5,10 +5,10 @@ import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: 'Reserva',
-  todo: 'Por hacer',
-  in_progress: 'En curso',
-  done: 'Hecho',
+  backlog: 'Backlog',
+  todo: 'To do',
+  in_progress: 'In progress',
+  done: 'Done',
 };
 
 interface CreateTaskModalProps {

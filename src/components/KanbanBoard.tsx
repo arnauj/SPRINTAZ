@@ -244,6 +244,7 @@ function TaskCard({ task, users, column, canDelete, onDragStart, onStatusChange,
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -2 }}
+      style={{ zIndex: showOptions ? 50 : 'auto' }}
       className={`p-3 rounded-xl border transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${column.cardBorder} hover:border-opacity-60`}
     >
       <div className="flex justify-between items-start mb-2 gap-2">

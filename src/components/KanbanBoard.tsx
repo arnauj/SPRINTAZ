@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus } from '../types';
-import { Plus, MoreHorizontal, User as UserIcon, CheckCircle2, Clock, Inbox, PlayCircle } from 'lucide-react';
+import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 
@@ -11,11 +11,68 @@ interface KanbanBoardProps {
   users: User[];
 }
 
-const COLUMNS: { id: TaskStatus; label: string; icon: any; color: string; dot: string; bgClass: string }[] = [
-  { id: 'backlog', label: 'Reserva', icon: Inbox, color: 'text-slate-500', dot: 'bg-slate-500', bgClass: 'bg-slate-800/30' },
-  { id: 'todo', label: 'Por hacer', icon: Clock, color: 'text-amber-500', dot: 'bg-amber-500', bgClass: 'bg-yellow-200/50' },
-  { id: 'in_progress', label: 'En curso', icon: PlayCircle, color: 'text-indigo-500', dot: 'bg-indigo-500', bgClass: 'bg-indigo-900/20' },
-  { id: 'done', label: 'Hecho', icon: CheckCircle2, color: 'text-emerald-500', dot: 'bg-emerald-500', bgClass: 'bg-emerald-900/20' },
+interface ColumnConfig {
+  id: TaskStatus;
+  label: string;
+  icon: any;
+  bgClass: string;
+  borderClass: string;
+  headerBg: string;
+  headerText: string;
+  cardBg: string;
+  cardBorder: string;
+  accentText: string;
+}
+
+const COLUMNS: ColumnConfig[] = [
+  {
+    id: 'backlog',
+    label: 'Reserva',
+    icon: Inbox,
+    bgClass: 'bg-slate-500/[0.06]',
+    borderClass: 'border-slate-500/20',
+    headerBg: 'bg-slate-500/15',
+    headerText: 'text-slate-300',
+    cardBg: 'bg-slate-800/40',
+    cardBorder: 'border-slate-600/30',
+    accentText: 'text-slate-400',
+  },
+  {
+    id: 'todo',
+    label: 'Por hacer',
+    icon: Clock,
+    bgClass: 'bg-amber-500/[0.08]',
+    borderClass: 'border-amber-500/25',
+    headerBg: 'bg-amber-500/20',
+    headerText: 'text-amber-200',
+    cardBg: 'bg-amber-500/10',
+    cardBorder: 'border-amber-500/20',
+    accentText: 'text-amber-300',
+  },
+  {
+    id: 'in_progress',
+    label: 'En curso',
+    icon: PlayCircle,
+    bgClass: 'bg-indigo-500/[0.08]',
+    borderClass: 'border-indigo-500/25',
+    headerBg: 'bg-indigo-500/20',
+    headerText: 'text-indigo-200',
+    cardBg: 'bg-indigo-500/10',
+    cardBorder: 'border-indigo-500/30',
+    accentText: 'text-indigo-300',
+  },
+  {
+    id: 'done',
+    label: 'Hecho',
+    icon: CheckCircle2,
+    bgClass: 'bg-emerald-500/[0.06]',
+    borderClass: 'border-emerald-500/20',
+    headerBg: 'bg-emerald-500/20',
+    headerText: 'text-emerald-200',
+    cardBg: 'bg-emerald-500/[0.07]',
+    cardBorder: 'border-emerald-500/20',
+    accentText: 'text-emerald-300',
+  },
 ];
 
 export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardProps) {
@@ -50,17 +107,17 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
     }
   };
 
-  const handleDragStart = (e: React.DragEvent, task: Task) => {
+  const handleDragStart = (e: DragEvent, task: Task) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('taskId', task.id);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = async (e: React.DragEvent, newStatus: TaskStatus) => {
+  const handleDrop = async (e: DragEvent, newStatus: TaskStatus) => {
     e.preventDefault();
     const taskId = e.dataTransfer.getData('taskId');
     const task = tasks.find(t => t.id === taskId);
@@ -91,33 +148,50 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
       </header>
 
       <div className="flex-1 grid grid-cols-4 gap-4 h-full min-h-0">
-        {COLUMNS.map((column) => (
-          <div key={column.id} className="flex flex-col gap-3 min-h-0">
-            <div className="flex items-center gap-2 px-2">
-              <div className={`h-2 w-2 rounded-full ${column.dot} ${column.id === 'in_progress' ? 'animate-pulse' : ''}`}></div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">{column.label}</h3>
-              <span className="text-[10px] font-mono text-slate-600 ml-auto">{getTasksByStatus(column.id).length}</span>
-            </div>
-
+        {COLUMNS.map((column) => {
+          const Icon = column.icon;
+          const count = getTasksByStatus(column.id).length;
+          return (
             <div
-              className={`${column.bgClass} rounded-2xl border border-bento-border p-2 flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar`}
+              key={column.id}
+              className={`flex flex-col min-h-0 rounded-2xl border ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <AnimatePresence initial={false}>
-                {getTasksByStatus(column.id).map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    users={users}
-                    onDragStart={(e) => handleDragStart(e, task)}
-                    onStatusChange={(status) => handleStatusChange(task, status)}
-                  />
-                ))}
-              </AnimatePresence>
+              <div className={`${column.headerBg} px-4 py-3 border-b ${column.borderClass} flex items-center justify-between`}>
+                <div className="flex items-center gap-2">
+                  <Icon className={`w-4 h-4 ${column.headerText}`} />
+                  <h3 className={`text-xs font-bold uppercase tracking-wider ${column.headerText}`}>
+                    {column.label}
+                  </h3>
+                </div>
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-black/20 ${column.headerText}`}>
+                  {count}
+                </span>
+              </div>
+
+              <div className="flex-1 flex flex-col gap-2 p-3 overflow-y-auto custom-scrollbar">
+                <AnimatePresence initial={false}>
+                  {getTasksByStatus(column.id).map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      users={users}
+                      column={column}
+                      onDragStart={(e) => handleDragStart(e, task)}
+                      onStatusChange={(status) => handleStatusChange(task, status)}
+                    />
+                  ))}
+                </AnimatePresence>
+                {count === 0 && (
+                  <div className={`text-center py-8 text-xs italic ${column.accentText} opacity-50`}>
+                    Sin tareas
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <CreateTaskModal 
@@ -135,11 +209,12 @@ interface TaskCardProps {
   key?: any;
   task: Task;
   users: User[];
-  onDragStart: (e: React.DragEvent) => void;
+  column: ColumnConfig;
+  onDragStart: (e: DragEvent) => void;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
 }
 
-function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
+function TaskCard({ task, users, column, onDragStart, onStatusChange }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -155,27 +230,22 @@ function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className={`p-3 rounded-xl border transition-all group relative cursor-move ${
-        isDoing
-          ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5'
-          : isDone
-            ? 'bg-emerald-500/5 border-emerald-500/20'
-            : 'bg-transparent border-slate-700/30 hover:border-slate-600 shadow-sm'
-      }`}
+      whileHover={{ y: -2 }}
+      className={`p-3 rounded-xl border transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${column.cardBorder} hover:border-opacity-60`}
     >
-      <div className="flex justify-between items-start mb-2">
-        <h5 className={`font-medium text-sm leading-snug ${isDone ? 'text-slate-400 font-normal line-through opacity-70' : 'text-slate-200'}`}>
+      <div className="flex justify-between items-start mb-2 gap-2">
+        <h5 className={`font-semibold text-sm leading-snug text-slate-100 ${isDone ? 'line-through opacity-60' : ''}`}>
           {task.name}
         </h5>
-        
-        <div className="relative">
-          <button 
+
+        <div className="relative shrink-0">
+          <button
             onClick={() => setShowOptions(!showOptions)}
-            className="p-1 opacity-0 group-hover:opacity-100 hover:bg-slate-700 rounded text-slate-500 transition-all cursor-pointer"
+            className="p-1 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded text-slate-300 transition-all cursor-pointer"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
-          
+
           <AnimatePresence>
             {showOptions && (
               <>
@@ -184,7 +254,7 @@ function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-0 top-8 w-32 bg-bento-card border border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
+                  className="absolute right-0 top-8 w-36 bg-bento-card border border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
                 >
                   {COLUMNS.filter(c => c.id !== task.status).map(col => (
                     <button
@@ -195,7 +265,7 @@ function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
                       }}
                       className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-400 hover:text-white hover:bg-slate-800 border-b last:border-0 border-bento-border cursor-pointer"
                     >
-                      A {col.label}
+                      → {col.label}
                     </button>
                   ))}
                 </motion.div>
@@ -205,27 +275,40 @@ function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
         </div>
       </div>
 
-      {(isDoing || isDone) ? (
-        <div className={`mt-3 pt-2 border-t flex items-center justify-between ${
-          isDoing ? 'border-indigo-500/20' : 'border-emerald-500/10'
-        }`}>
-           <span className={`text-[9px] uppercase font-bold italic tracking-tight ${
-             isDoing ? 'text-indigo-400' : 'text-emerald-500 opacity-70'
-           }`}>
-             {isDoing ? `Doing: ${assignedUser?.name || '...'}` : `Done by: ${finishedByUser?.name || '...'}`}
-           </span>
-           <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[8px] font-bold shadow-sm ${
-             isDoing ? 'bg-indigo-500 text-white' : 'bg-emerald-500 text-white opacity-60'
-           }`}>
-             {isDoing ? (assignedUser?.name?.[0] || '?') : (finishedByUser?.name?.[0] || '?')}
-           </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-[10px] font-mono text-slate-500 uppercase tracking-tighter">{task.weight} PTS</span>
-          <div className="h-1.5 w-1.5 rounded-full bg-slate-700"></div>
-        </div>
+      {task.description && (
+        <p className="text-xs text-slate-300/70 mb-2 line-clamp-2 leading-relaxed">
+          {task.description}
+        </p>
       )}
+
+      <div className={`mt-3 pt-2 border-t ${column.cardBorder} flex items-center justify-between gap-2`}>
+        {isDoing && assignedUser ? (
+          <>
+            <span className={`text-[9px] uppercase font-bold tracking-wide ${column.accentText}`}>
+              Hace: {assignedUser.name}
+            </span>
+            <div className="h-5 w-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[8px] font-bold shadow-sm">
+              {assignedUser.name[0]}
+            </div>
+          </>
+        ) : isDone && finishedByUser ? (
+          <>
+            <span className={`text-[9px] uppercase font-bold tracking-wide ${column.accentText}`}>
+              Hecho por: {finishedByUser.name}
+            </span>
+            <div className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-bold shadow-sm">
+              {finishedByUser.name[0]}
+            </div>
+          </>
+        ) : (
+          <>
+            <span className={`text-[10px] font-mono uppercase tracking-tight ${column.accentText} opacity-80`}>
+              {task.weight} PTS
+            </span>
+            <div className={`h-1.5 w-1.5 rounded-full ${column.accentText} opacity-50`}></div>
+          </>
+        )}
+      </div>
     </motion.div>
   );
 }

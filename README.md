@@ -1,20 +1,53 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# SPRINTAZ
 
-# Run and deploy your AI Studio app
+**S**istema de **P**lanificación **R**ápida e **I**terativa para **N**uevas **T**areas **Á**giles del **Z**onzamas.
 
-This contains everything you need to run your app locally.
+Tablero Kanban en tiempo real para la gestión de sprints y tareas en CIFP Zonzamas.
 
-View your app in AI Studio: https://ai.studio/apps/80c6f4e4-bc39-4031-957e-08bc09bfc275
+## Stack
 
-## Run Locally
+- React 19 + TypeScript + Vite
+- Tailwind CSS v4
+- Firebase (Auth + Firestore) — sin backend propio
+- `motion/react` para animaciones
 
-**Prerequisites:**  Node.js
+## Funcionalidades
 
+- Login con Google
+- Roles: **Teacher** (gestiona sprints, puede borrar tareas) y **Collaborator**
+- Sprints con tablero Kanban: Backlog → To do → In progress → Done
+- Drag & drop entre columnas
+- Notificaciones en tiempo real cuando una tarea cambia de estado
+- Diseño responsive (drawer en móvil, scroll horizontal del tablero)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Ejecución local
+
+**Requisitos:** Node.js 20+
+
+```bash
+npm install
+npm run dev
+```
+
+La app arranca en `http://localhost:3000`.
+
+## Comandos
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Servidor de desarrollo (puerto 3000) |
+| `npm run build` | Build de producción en `dist/` |
+| `npm run preview` | Servir el build localmente |
+| `npm run lint` | ESLint + `tsc --noEmit` |
+
+## Despliegue
+
+El proyecto se despliega automáticamente a **GitHub Pages** en cada push a `main` mediante el workflow `.github/workflows/deploy.yml`.
+
+URL pública: https://arnauj.github.io/SPRINTAZ/
+
+## Configuración de Firebase
+
+La configuración del cliente está en `firebase-applet-config.json`. Las reglas de seguridad de Firestore están en `firestore.rules` y deben aplicarse manualmente desde la consola de Firebase (Firestore Database → Rules).
+
+Los dominios autorizados para Google Auth deben incluir `localhost` y el dominio de despliegue (`arnauj.github.io`).

@@ -24,7 +24,7 @@ React 19 + TypeScript + Vite 6 + Tailwind v4 (via `@tailwindcss/vite`, configure
 
 ## Architecture
 
-This is an AI Studio "applet" — a frontend-only React app whose only backend is a shared Firebase project. The whole data layer lives in `src/services/firebaseService.ts`; UI components must not call `firebase/firestore` directly.
+Frontend-only React app whose entire backend is a Firebase project (Auth + Firestore). Deployed to GitHub Pages via `.github/workflows/deploy.yml` on every push to `main`. The whole data layer lives in `src/services/firebaseService.ts`; UI components must not call `firebase/firestore` directly.
 
 **Data flow:** components subscribe via `firebaseService.subscribe*` (which wraps `onSnapshot`), which means Firestore is the source of truth and the UI is fully reactive. Mutations go through `firebaseService.create*/update*` and are validated server-side by `firestore.rules` — there is no separate API layer to enforce invariants, so any new write must satisfy the rules in that file.
 
@@ -40,7 +40,9 @@ This is an AI Studio "applet" — a frontend-only React app whose only backend i
 
 ## Firebase configuration
 
-Config is committed in `firebase-applet-config.json` (apiKey, projectId, and a non-default `firestoreDatabaseId` — `getFirestore(app, firebaseConfig.firestoreDatabaseId)` in `src/lib/firebase.ts`). This is intentional for AI Studio applets; do not move it to env vars without coordinating. Auth uses Google Sign-In via popup.
+Config is committed in `firebase-applet-config.json` (apiKey, projectId, and a non-default `firestoreDatabaseId` — `getFirestore(app, firebaseConfig.firestoreDatabaseId)` in `src/lib/firebase.ts`). The web `apiKey` is not a secret in Firebase; access control lives entirely in `firestore.rules`. Auth uses Google Sign-In via popup, and the deployment domain (e.g. `arnauj.github.io`) must be added to Firebase Auth → Authorized domains.
+
+Firestore rules live in `firestore.rules` but are **not** auto-deployed by the workflow — they must be applied manually in the Firebase console when changed.
 
 `src/lib/firebase.ts` runs a `testConnection()` on module import — keep this in mind if you see a stray Firestore read at startup.
 
@@ -50,8 +52,8 @@ Config is committed in `firebase-applet-config.json` (apiKey, projectId, and a n
 
 ## UI conventions
 
-Custom Tailwind tokens (`bento-bg`, `bento-card`, `bento-card-hover`, `bento-border`) defined via `@theme` in `src/index.css` — use these instead of raw slate colors for surfaces. UI strings are in Spanish (CIFP Zonzamas vocational-training context). Animations are `motion/react`, not `framer-motion`.
+Custom Tailwind tokens (`bento-bg`, `bento-card`, `bento-card-hover`, `bento-border`) defined via `@theme` in `src/index.css` — use these instead of raw slate colors for surfaces. UI strings are mostly in Spanish (CIFP Zonzamas vocational-training context); Kanban column labels are in English. Animations are `motion/react`, not `framer-motion`.
 
-## HMR
+## Deployment
 
-`vite.config.ts` disables HMR when `DISABLE_HMR=true` (AI Studio sets this to prevent flicker during agent edits). The comment in that file explicitly asks not to modify the file-watching setup.
+`vite.config.ts` sets `base: '/SPRINTAZ/'` for GitHub Pages — if the repo name changes, update this. The deploy workflow uses the official `actions/deploy-pages@v4` flow (not `gh-pages` branch publishing); GitHub Pages source must be set to "GitHub Actions" in repo settings.

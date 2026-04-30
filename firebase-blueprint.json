@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Represents a teacher or student in the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["Teacher", "Collaborator"] },
+        "photoURL": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Sprint": {
+      "title": "Sprint",
+      "description": "A container for tasks within a period.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "createdBy"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A single piece of work.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sprintId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "weight": { "type": "number" },
+        "status": { "type": "string", "enum": ["backlog", "todo", "in_progress", "done"] },
+        "assignedTo": { "type": "string" },
+        "finishedBy": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "sprintId", "status", "weight", "createdBy"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Push notification for task changes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "message": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "message", "read", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "Global users collection"
+    },
+    "sprints": {
+      "schema": "Sprint",
+      "description": "Global sprints collection"
+    },
+    "tasks": {
+      "schema": "Task",
+      "description": "Tasks associated with sprints"
+    },
+    "notifications": {
+      "schema": "Notification",
+      "description": "User specific notifications"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function getUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isTeacher() {
+      return isSignedIn() && (
+        request.auth.token.email.lower() == 'juanrael@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'Collaborator') == 'Teacher')
+      );
+    }
+
+    // --- Users ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) || isTeacher());
+    }
+
+    // --- Sprints ---
+    function isValidSprint(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.createdBy == request.auth.uid;
+    }
+
+    match /sprints/{sprintId} {
+      allow read: if isSignedIn();
+      allow create: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('createdAt', null) != null;
+      allow update: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('updatedAt', null) != null;
+      allow delete: if isTeacher();
+    }
+
+    // --- Tasks ---
+    function isValidTask(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 200
+        && data.sprintId is string
+        && data.weight is number && data.weight >= 0
+        && data.status in ['backlog', 'todo', 'in_progress', 'done']
+        && (data.status != 'in_progress' || data.get('assignedTo', null) != null)
+        && (data.status != 'done' || data.get('finishedBy', null) != null)
+        && data.createdBy == (resource == null ? request.auth.uid : resource.data.createdBy);
+    }
+
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('createdAt', null) != null;
+      allow update: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('updatedAt', null) != null && (
+        // Action: Assign Task
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedTo', 'status', 'updatedAt']) && request.resource.data.status == 'in_progress' && (request.resource.data.assignedTo == request.auth.uid || isTeacher())) ||
+        // Action: Finalize Task
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finishedBy', 'status', 'updatedAt']) && request.resource.data.status == 'done') ||
+        // Action: Move Task
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        // Action: Edit Task Details
+        (request.resource.data.diff(resource.data).affectedKeys().hasAll(['name', 'weight', 'description']) && (isTeacher() || resource.data.createdBy == request.auth.uid))
+      );
+      allow delete: if isTeacher();
+    }
+
+    // --- Notifications ---
+    match /notifications/{notifId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isSignedIn(); // System creates notifications
+      allow update: if isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+  }
+}

@@ -12,8 +12,8 @@ interface KanbanBoardProps {
 }
 
 const COLUMNS: { id: TaskStatus; label: string; icon: any; color: string; dot: string; bgClass: string }[] = [
-  { id: 'backlog', label: 'Reserva', icon: Inbox, color: 'text-slate-500', dot: 'bg-slate-500', bgClass: 'bg-slate-900/20' },
-  { id: 'todo', label: 'Por hacer', icon: Clock, color: 'text-amber-500', dot: 'bg-amber-500', bgClass: 'bg-amber-900/20' },
+  { id: 'backlog', label: 'Reserva', icon: Inbox, color: 'text-slate-500', dot: 'bg-slate-500', bgClass: 'bg-slate-800/30' },
+  { id: 'todo', label: 'Por hacer', icon: Clock, color: 'text-amber-500', dot: 'bg-amber-500', bgClass: 'bg-yellow-200/50' },
   { id: 'in_progress', label: 'En curso', icon: PlayCircle, color: 'text-indigo-500', dot: 'bg-indigo-500', bgClass: 'bg-indigo-900/20' },
   { id: 'done', label: 'Hecho', icon: CheckCircle2, color: 'text-emerald-500', dot: 'bg-emerald-500', bgClass: 'bg-emerald-900/20' },
 ];
@@ -160,7 +160,7 @@ function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
           ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5'
           : isDone
             ? 'bg-emerald-500/5 border-emerald-500/20'
-            : 'bg-bento-card-hover border-slate-700/50 hover:border-slate-600 shadow-sm'
+            : 'bg-transparent border-slate-700/30 hover:border-slate-600 shadow-sm'
       }`}
     >
       <div className="flex justify-between items-start mb-2">

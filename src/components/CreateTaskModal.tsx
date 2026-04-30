@@ -4,6 +4,13 @@ import { TaskStatus, User } from '../types';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+const STATUS_LABELS: Record<TaskStatus, string> = {
+  backlog: 'Reserva',
+  todo: 'Por hacer',
+  in_progress: 'En curso',
+  done: 'Hecho',
+};
+
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -86,7 +93,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Estado</label>
                   <div className="w-full px-5 py-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center h-full">
-                    {initialStatus}
+                    {STATUS_LABELS[initialStatus]}
                   </div>
                 </div>
               </div>

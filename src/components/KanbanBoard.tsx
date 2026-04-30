@@ -11,11 +11,11 @@ interface KanbanBoardProps {
   users: User[];
 }
 
-const COLUMNS: { id: TaskStatus; label: string; icon: any; color: string; dot: string }[] = [
-  { id: 'backlog', label: 'Backlog', icon: Inbox, color: 'text-slate-500', dot: 'bg-slate-500' },
-  { id: 'todo', label: 'To Do', icon: Clock, color: 'text-amber-500', dot: 'bg-amber-500' },
-  { id: 'in_progress', label: 'In Progress', icon: PlayCircle, color: 'text-indigo-500', dot: 'bg-indigo-500' },
-  { id: 'done', label: 'Done', icon: CheckCircle2, color: 'text-emerald-500', dot: 'bg-emerald-500' },
+const COLUMNS: { id: TaskStatus; label: string; icon: any; color: string; dot: string; bgClass: string }[] = [
+  { id: 'backlog', label: 'Reserva', icon: Inbox, color: 'text-slate-500', dot: 'bg-slate-500', bgClass: 'bg-slate-900/20' },
+  { id: 'todo', label: 'Por hacer', icon: Clock, color: 'text-amber-500', dot: 'bg-amber-500', bgClass: 'bg-amber-900/20' },
+  { id: 'in_progress', label: 'En curso', icon: PlayCircle, color: 'text-indigo-500', dot: 'bg-indigo-500', bgClass: 'bg-indigo-900/20' },
+  { id: 'done', label: 'Hecho', icon: CheckCircle2, color: 'text-emerald-500', dot: 'bg-emerald-500', bgClass: 'bg-emerald-900/20' },
 ];
 
 export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardProps) {
@@ -32,7 +32,7 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
     if (task.status === newStatus) return;
 
     const updates: Partial<Task> = { status: newStatus };
-    let message = `Tarea "${task.name}" movida a ${newStatus}`;
+    let message = `Tarea "${task.name}" movida a ${COLUMNS.find(c => c.id === newStatus)?.label}`;
 
     if (newStatus === 'in_progress') {
       updates.assignedTo = currentUser.uid;
@@ -43,10 +43,29 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
     }
 
     await firebaseService.updateTask(task.id, updates);
-    
+
     // Notify creator
     if (task.createdBy !== currentUser.uid) {
       await firebaseService.createNotification(task.createdBy, message);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, task: Task) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('taskId', task.id);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStatus: TaskStatus) => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('taskId');
+    const task = tasks.find(t => t.id === taskId);
+    if (task && task.status !== newStatus) {
+      await handleStatusChange(task, newStatus);
     }
   };
 
@@ -79,14 +98,19 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">{column.label}</h3>
               <span className="text-[10px] font-mono text-slate-600 ml-auto">{getTasksByStatus(column.id).length}</span>
             </div>
-            
-            <div className="bg-bento-card/50 rounded-2xl border border-bento-border p-2 flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar">
+
+            <div
+              className={`${column.bgClass} rounded-2xl border border-bento-border p-2 flex-1 flex flex-col gap-2 overflow-y-auto custom-scrollbar`}
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.id)}
+            >
               <AnimatePresence initial={false}>
                 {getTasksByStatus(column.id).map((task) => (
-                  <TaskCard 
-                    key={task.id} 
-                    task={task} 
-                    users={users} 
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    users={users}
+                    onDragStart={(e) => handleDragStart(e, task)}
                     onStatusChange={(status) => handleStatusChange(task, status)}
                   />
                 ))}
@@ -111,10 +135,11 @@ interface TaskCardProps {
   key?: any;
   task: Task;
   users: User[];
+  onDragStart: (e: React.DragEvent) => void;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
 }
 
-function TaskCard({ task, users, onStatusChange }: TaskCardProps) {
+function TaskCard({ task, users, onDragStart, onStatusChange }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -125,12 +150,14 @@ function TaskCard({ task, users, onStatusChange }: TaskCardProps) {
   return (
     <motion.div
       layout
+      draggable
+      onDragStart={onDragStart}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className={`p-3 rounded-xl border transition-all group relative ${
-        isDoing 
-          ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5' 
+      className={`p-3 rounded-xl border transition-all group relative cursor-move ${
+        isDoing
+          ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5'
           : isDone
             ? 'bg-emerald-500/5 border-emerald-500/20'
             : 'bg-bento-card-hover border-slate-700/50 hover:border-slate-600 shadow-sm'

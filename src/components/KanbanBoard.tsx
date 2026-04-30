@@ -207,6 +207,15 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
                   </div>
                 )}
               </div>
+
+              <div className={`px-4 py-2 border-t ${column.borderClass} bg-black/10 flex justify-between items-center`}>
+                <span className={`text-[10px] font-bold uppercase tracking-wider ${column.headerText} opacity-70`}>
+                  Total tareas
+                </span>
+                <span className={`text-sm font-mono font-bold ${column.headerText}`}>
+                  {count}
+                </span>
+              </div>
             </div>
           );
         })}

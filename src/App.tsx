@@ -12,7 +12,8 @@ import {
   LogOut,
   Layers,
   Menu,
-  X
+  X,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -20,6 +21,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import SprintSidebar from './components/SprintSidebar';
 import KanbanBoard from './components/KanbanBoard';
 import NotificationBell from './components/NotificationBell';
+import ProfileEditModal from './components/ProfileEditModal';
+import AdminUsersPanel from './components/AdminUsersPanel';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -27,6 +30,8 @@ export default function App() {
   const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -111,7 +116,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bento-bg text-slate-200 font-sans overflow-hidden p-3 md:p-6 gap-3 md:gap-6 flex-col">
-      <header className="h-16 md:h-20 flex items-center justify-between px-3 md:px-6 bg-bento-card border border-bento-border rounded-2xl shadow-xl shrink-0 gap-2">
+      <header className="h-16 md:h-20 flex items-center justify-between px-3 md:px-6 bg-bento-card border-2 border-bento-border rounded-2xl shadow-xl shrink-0 gap-2">
         <div className="flex items-center gap-2 md:gap-4 min-w-0">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -135,17 +140,32 @@ export default function App() {
         <div className="flex items-center gap-2 md:gap-6 shrink-0">
           <NotificationBell userId={user.uid} />
 
-          <div className="flex items-center gap-2 md:gap-4 md:border-l md:pl-6 border-bento-border">
+          <div className="flex items-center gap-2 md:gap-4 md:border-l-2 md:pl-6 border-bento-border">
             <div className="text-right hidden md:block">
               <p className="text-sm font-bold text-slate-200 leading-none">{user.name}</p>
               <p className="text-[10px] uppercase font-bold text-indigo-400 mt-1 tracking-tight">{user.role}</p>
             </div>
-            {user.photoURL ? (
-              <img src={user.photoURL} className="w-9 h-9 md:w-10 md:h-10 rounded-full border border-indigo-500/30 ring-2 ring-indigo-500/10" alt={user.name} referrerPolicy="no-referrer" />
-            ) : (
-              <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-sm">
-                {user.name[0]}
-              </div>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="rounded-full transition-all hover:ring-2 hover:ring-indigo-400 cursor-pointer"
+              title="Editar perfil"
+            >
+              {user.photoURL ? (
+                <img src={user.photoURL} className="w-9 h-9 md:w-10 md:h-10 rounded-full border-2 border-indigo-500/40 ring-2 ring-indigo-500/10" alt={user.name} referrerPolicy="no-referrer" />
+              ) : (
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-sm border-2 border-indigo-500/40">
+                  {user.name[0]}
+                </div>
+              )}
+            </button>
+            {user.role === 'Admin' && (
+              <button
+                onClick={() => setShowAdminPanel(true)}
+                className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+                title="Administrar usuarios"
+              >
+                <Shield className="w-5 h-5" />
+              </button>
             )}
             <button
               onClick={() => signOut(auth)}
@@ -222,7 +242,7 @@ export default function App() {
                 <KanbanBoard sprint={activeSprint} currentUser={user} users={users} />
               </motion.div>
             ) : (
-              <div className="h-full bg-bento-card border border-bento-border rounded-2xl flex flex-col items-center justify-center text-slate-500 gap-4 shadow-lg p-6 text-center">
+              <div className="h-full bg-bento-card border-2 border-bento-border rounded-2xl flex flex-col items-center justify-center text-slate-500 gap-4 shadow-lg p-6 text-center">
                 <Layers className="w-12 h-12 md:w-16 md:h-16 opacity-10" />
                 <p className="text-base md:text-lg font-medium opacity-50">Selecciona un sprint para visualizar el tablero</p>
                 <button
@@ -237,7 +257,7 @@ export default function App() {
         </main>
       </div>
 
-      <footer className="h-10 md:h-12 bg-bento-card border border-bento-border rounded-2xl flex items-center px-3 md:px-6 gap-2 md:gap-4 shadow-inner shrink-0">
+      <footer className="h-10 md:h-12 bg-bento-card border-2 border-bento-border rounded-2xl flex items-center px-3 md:px-6 gap-2 md:gap-4 shadow-inner shrink-0">
         <div className="flex items-center gap-2 text-indigo-400 shrink-0">
           <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
           <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Sistema:</span>
@@ -252,6 +272,22 @@ export default function App() {
           <span className="text-[10px] font-mono text-slate-600 uppercase tracking-tighter hidden md:inline">Live Database Connected</span>
         </div>
       </footer>
+
+      <ProfileEditModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        user={user}
+        onSaved={(updated) => setUser(updated)}
+      />
+
+      {user.role === 'Admin' && (
+        <AdminUsersPanel
+          isOpen={showAdminPanel}
+          onClose={() => setShowAdminPanel(false)}
+          users={users}
+          currentUserId={user.uid}
+        />
+      )}
     </div>
   );
 }

@@ -17,9 +17,9 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   return (
     <div className="relative">
-      <button 
+      <button
         onClick={() => setShowDropdown(!showDropdown)}
-        className="p-2.5 bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800 rounded-xl relative transition-all cursor-pointer shadow-sm active:scale-95"
+        className="p-2.5 bg-slate-800/50 border-2 border-slate-700/50 hover:bg-slate-800 rounded-xl relative transition-all cursor-pointer shadow-sm active:scale-95"
         aria-label="Notifications"
       >
         <Bell className="w-5 h-5 text-slate-400" />
@@ -36,9 +36,9 @@ export default function NotificationBell({ userId }: { userId: string }) {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-4 w-80 bg-bento-card border border-bento-border rounded-2xl shadow-2xl z-30 overflow-hidden"
+              className="absolute right-0 mt-4 w-80 bg-bento-card border-2 border-bento-border rounded-2xl shadow-2xl z-30 overflow-hidden"
             >
-              <div className="p-4 border-b border-bento-border flex items-center justify-between bg-slate-800/10">
+              <div className="p-4 border-b-2 border-bento-border flex items-center justify-between bg-slate-800/10">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Notificaciones</span>
                 {unreadCount > 0 && (
                   <span className="text-[10px] bg-indigo-500 text-white font-bold px-2 py-0.5 rounded-full shadow-md">

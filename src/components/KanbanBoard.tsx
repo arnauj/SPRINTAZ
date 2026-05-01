@@ -169,11 +169,11 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
           return (
             <div
               key={column.id}
-              className={`flex flex-col min-h-0 rounded-2xl border ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center`}
+              className={`flex flex-col min-h-0 rounded-2xl border-2 ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center`}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className={`${column.headerBg} px-4 py-3 border-b ${column.borderClass} flex items-center justify-between`}>
+              <div className={`${column.headerBg} px-4 py-3 border-b-2 ${column.borderClass} flex items-center justify-between`}>
                 <div className="flex items-center gap-2">
                   <Icon className={`w-4 h-4 ${column.headerText}`} />
                   <h3 className={`text-xs font-bold uppercase tracking-wider ${column.headerText}`}>
@@ -208,7 +208,7 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
                 )}
               </div>
 
-              <div className={`px-4 py-2 border-t ${column.borderClass} bg-black/10 flex justify-between items-center`}>
+              <div className={`px-4 py-2 border-t-2 ${column.borderClass} bg-black/10 flex justify-between items-center`}>
                 <span className={`text-[10px] font-bold uppercase tracking-wider ${column.headerText} opacity-70`}>
                   Total tareas
                 </span>
@@ -267,12 +267,11 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       whileHover={{ y: -2 }}
       style={{
         zIndex: showOptions ? 50 : 'auto',
-        borderLeftColor: task.color || undefined,
-        borderLeftWidth: task.color ? '6px' : undefined,
+        borderColor: task.color || undefined,
         backgroundColor: task.color ? `${task.color}15` : undefined,
         boxShadow: task.color ? `0 4px 12px ${task.color}20` : undefined,
       }}
-      className={`p-3 rounded-xl border transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${column.cardBorder} hover:border-opacity-60`}
+      className={`p-3 rounded-xl border-2 transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${task.color ? '' : column.cardBorder} hover:border-opacity-60`}
     >
       <div className="flex justify-between items-start mb-2 gap-2">
         <h5 className={`font-semibold text-sm leading-snug text-slate-100 ${isDone ? 'line-through opacity-60' : ''}`}>
@@ -282,7 +281,8 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
         <div className="relative shrink-0">
           <button
             onClick={() => setShowOptions(!showOptions)}
-            className="p-1 opacity-0 group-hover:opacity-100 hover:bg-white/10 rounded text-slate-300 transition-all cursor-pointer"
+            className="p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-white/10 rounded text-slate-300 transition-all cursor-pointer"
+            aria-label="Opciones de tarea"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
@@ -295,7 +295,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-0 top-8 w-36 bg-bento-card border border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
+                  className="absolute right-0 top-8 w-36 bg-bento-card border-2 border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
                 >
                   {canModify && (
                     <button
@@ -346,7 +346,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
         </p>
       )}
 
-      <div className={`mt-3 pt-2 border-t ${column.cardBorder} flex items-center justify-between gap-2`}>
+      <div className={`mt-3 pt-2 border-t-2 ${column.cardBorder} flex items-center justify-between gap-2`}>
         {isDoing && assignedUser ? (
           <>
             <span className={`text-[9px] uppercase font-bold tracking-wide ${column.accentText}`}>

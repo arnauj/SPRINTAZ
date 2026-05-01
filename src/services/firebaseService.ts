@@ -1,19 +1,20 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
   onSnapshot,
   serverTimestamp,
   addDoc
 } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, auth, storage } from '../lib/firebase';
 import { OperationType, Task, Sprint, User, Notification } from '../types';
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
@@ -86,6 +87,27 @@ export const firebaseService = {
       await updateDoc(doc(db, 'users', uid), { role });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
+    }
+  },
+
+  async updateUser(uid: string, updates: Partial<Omit<User, 'uid'>>) {
+    try {
+      await updateDoc(doc(db, 'users', uid), updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
+    }
+  },
+
+  async uploadUserPhoto(uid: string, file: File): Promise<string> {
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const photoRef = ref(storage, `user-photos/${uid}/${Date.now()}.${ext}`);
+      await uploadBytes(photoRef, file);
+      const photoURL = await getDownloadURL(photoRef);
+      return photoURL;
+    } catch (e) {
+      console.error('Photo upload error:', e);
+      throw new Error('No se pudo subir la foto. Inténtalo de nuevo.');
     }
   },
 

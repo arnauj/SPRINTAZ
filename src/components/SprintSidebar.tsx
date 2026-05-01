@@ -73,7 +73,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
   return (
     <aside className="w-72 flex flex-col gap-6 shrink-0 h-full">
       {/* Sprints Bento */}
-      <div className="bg-bento-card border border-bento-border rounded-2xl p-5 flex flex-col min-h-0 shadow-lg shrink-0">
+      <div className="bg-bento-card border-2 border-bento-border rounded-2xl p-5 flex flex-col min-h-0 shadow-lg shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest">SPRINTAZ / Sprints</h2>
           {canManageSprints && (
@@ -91,9 +91,9 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
             <div
               key={sprint.id}
               onClick={() => onSelectSprint(sprint)}
-              className={`p-3 rounded-xl border text-left transition-all cursor-pointer group ${
+              className={`p-3 rounded-xl border-2 text-left transition-all cursor-pointer group ${
                 activeSprint?.id === sprint.id
-                  ? 'bg-indigo-500/10 border-indigo-500/30'
+                  ? 'bg-indigo-500/10 border-indigo-500/40'
                   : 'bg-slate-800/20 border-slate-700/50 hover:bg-slate-800/40'
               }`}
             >
@@ -126,7 +126,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
       </div>
 
       {/* Team Bento */}
-      <div className="bg-bento-card border border-bento-border rounded-2xl p-5 flex-1 flex flex-col shadow-lg overflow-hidden shrink-0">
+      <div className="bg-bento-card border-2 border-bento-border rounded-2xl p-5 flex-1 flex flex-col shadow-lg overflow-hidden shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold uppercase text-slate-500 tracking-widest">Equipo</h2>
           {isAdmin && (
@@ -141,7 +141,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
             const colors = ROLE_COLORS[u.role] || ROLE_COLORS.Collaborator;
             const isSelf = u.uid === auth.currentUser?.uid;
             return (
-              <div key={u.uid} className="flex items-center gap-3 group">
+              <div key={u.uid} className="flex items-center gap-3 group pl-1">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ring-2 ring-opacity-20 ${colors.bg} text-white`}>
                   {u.photoURL ? (
                     <img src={u.photoURL} alt="" className="w-full h-full rounded-full object-cover" referrerPolicy="no-referrer" />
@@ -189,17 +189,17 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, userRole, 
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-bento-card border border-bento-border rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+              className="bg-bento-card border-2 border-bento-border rounded-2xl p-6 w-full max-w-sm shadow-2xl"
             >
               <h3 className="text-xl font-bold mb-4 text-white">Nuevo Sprint</h3>
               <form onSubmit={handleCreateSprint} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5 tracking-widest">Nombre del Sprint</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     autoFocus
                     placeholder="Ej: Evaluación 1 - Micro"
-                    className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 focus:border-indigo-500 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-200"
+                    className="w-full px-4 py-2.5 bg-slate-800 border-2 border-slate-700 focus:border-indigo-500 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-200"
                     value={newSprintName}
                     onChange={(e) => setNewSprintName(e.target.value)}
                   />

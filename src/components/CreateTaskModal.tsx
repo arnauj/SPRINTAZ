@@ -103,7 +103,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
             initial={{ scale: 0.95, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="bg-bento-card border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
+            className="bg-bento-card border-2 border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <button onClick={onClose} className="absolute top-6 right-6 p-2 hover:bg-slate-800 rounded-full transition-colors">
               <X className="w-5 h-5 text-slate-500" />
@@ -121,7 +121,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                   placeholder="Ej: Preparar presentación macro"
                   autoFocus
                   required
-                  className="w-full px-5 py-3 bg-slate-800 border border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-200"
+                  className="w-full px-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-200"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -134,14 +134,14 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                     type="number"
                     min="0"
                     max="100"
-                    className="w-full px-5 py-3 bg-slate-800 border border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium font-mono text-indigo-400"
+                    className="w-full px-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium font-mono text-indigo-400"
                     value={weight}
                     onChange={(e) => setWeight(Number(e.target.value))}
                   />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Estado</label>
-                  <div className="w-full px-5 py-3 bg-slate-900 border border-slate-800 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center h-full">
+                  <div className="w-full px-5 py-3 bg-slate-900 border-2 border-slate-800 text-slate-400 rounded-2xl font-bold text-[10px] uppercase tracking-widest flex items-center h-full">
                     {STATUS_LABELS[editingTask?.status || initialStatus]}
                   </div>
                 </div>
@@ -203,7 +203,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                 <textarea
                   placeholder="Detalles de la tarea..."
                   rows={4}
-                  className="w-full px-5 py-3 bg-slate-800 border border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all resize-none text-sm text-slate-300"
+                  className="w-full px-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all resize-none text-sm text-slate-300"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />

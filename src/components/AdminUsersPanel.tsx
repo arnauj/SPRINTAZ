@@ -28,6 +28,7 @@ interface EditState {
   name: string;
   photoURL: string;
   role: UserRole;
+  teams: string[];
 }
 
 export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId }: AdminUsersPanelProps) {
@@ -36,6 +37,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [newTeamInput, setNewTeamInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const startEdit = (u: User) => {
@@ -44,7 +46,29 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
       name: u.name,
       photoURL: u.photoURL || '',
       role: u.role,
+      teams: u.teams && u.teams.length > 0 ? [...u.teams] : [u.name],
     });
+    setNewTeamInput('');
+  };
+
+  const addTeam = () => {
+    const t = newTeamInput.trim();
+    if (!t || !editingState) return;
+    if (editingState.teams.includes(t)) {
+      setNewTeamInput('');
+      return;
+    }
+    setEditingState({ ...editingState, teams: [...editingState.teams, t] });
+    setNewTeamInput('');
+  };
+
+  const removeTeam = (team: string) => {
+    if (!editingState) return;
+    if (editingState.teams.length <= 1) {
+      setError('El usuario debe tener al menos un equipo.');
+      return;
+    }
+    setEditingState({ ...editingState, teams: editingState.teams.filter(t => t !== team) });
   };
 
   const cancelEdit = () => {
@@ -79,12 +103,17 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
   const saveEdit = async () => {
     if (!editingState) return;
     if (!editingState.name.trim()) return;
+    if (editingState.teams.length === 0) {
+      setError('El usuario debe tener al menos un equipo.');
+      return;
+    }
     setSavingUid(editingState.user.uid);
     try {
       await firebaseService.updateUser(editingState.user.uid, {
         name: editingState.name.trim(),
         photoURL: editingState.photoURL.trim() || '',
         role: editingState.role,
+        teams: editingState.teams,
       });
       cancelEdit();
     } finally {
@@ -187,6 +216,14 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                       <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg border-2 ${colors.border} ${colors.text} shrink-0`}>
                         {ROLE_LABELS[u.role] || u.role}
                       </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {(u.teams && u.teams.length > 0 ? u.teams : [u.name]).map(t => (
+                        <span key={t} className="text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg bg-indigo-500/10 border-2 border-indigo-500/30 text-indigo-300">
+                          {t}
+                        </span>
+                      ))}
                     </div>
 
                     <div className="mt-3 pt-3 border-t-2 border-slate-700/40 flex items-center justify-end gap-2">
@@ -320,6 +357,59 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                           <option value="Collaborator" className="bg-slate-800">Colaborador</option>
                         </select>
                         {isSelfEditing && <p className="text-[10px] text-slate-500 italic mt-1.5 ml-1">No puedes cambiar tu propio rol.</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                          Equipos
+                        </label>
+                        <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
+                          {editingState.teams.length === 0 && (
+                            <span className="text-[10px] text-slate-500 italic">Sin equipos asignados.</span>
+                          )}
+                          {editingState.teams.map(t => (
+                            <span
+                              key={t}
+                              className="text-[10px] uppercase font-bold tracking-widest pl-2 pr-1 py-1 rounded-lg bg-indigo-500/10 border-2 border-indigo-500/40 text-indigo-300 flex items-center gap-1"
+                            >
+                              {t}
+                              <button
+                                type="button"
+                                onClick={() => removeTeam(t)}
+                                className="p-0.5 hover:bg-red-500/30 hover:text-red-300 rounded transition-colors cursor-pointer"
+                                aria-label={`Quitar ${t}`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Añadir equipo..."
+                            className="flex-1 px-4 py-2.5 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-300 text-sm"
+                            value={newTeamInput}
+                            onChange={(e) => setNewTeamInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                addTeam();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={addTeam}
+                            disabled={!newTeamInput.trim()}
+                            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Añadir
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 italic mt-1.5 ml-1">
+                          Solo el administrador puede asignar varios equipos a un usuario.
+                        </p>
                       </div>
 
                       {error && (

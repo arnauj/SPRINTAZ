@@ -132,6 +132,17 @@ export const firebaseService = {
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));
   },
 
+  async updateSprint(sprintId: string, updates: Partial<Sprint>) {
+    try {
+      await updateDoc(doc(db, 'sprints', sprintId), {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `sprints/${sprintId}`);
+    }
+  },
+
   async deleteSprint(sprintId: string) {
     try {
       await deleteDoc(doc(db, 'sprints', sprintId));

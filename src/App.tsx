@@ -13,7 +13,8 @@ import {
   Layers,
   Menu,
   X,
-  Shield
+  Shield,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -23,6 +24,7 @@ import KanbanBoard from './components/KanbanBoard';
 import NotificationBell from './components/NotificationBell';
 import ProfileEditModal from './components/ProfileEditModal';
 import AdminUsersPanel from './components/AdminUsersPanel';
+import SendMessageModal from './components/SendMessageModal';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,6 +34,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [showSendMessage, setShowSendMessage] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -39,18 +42,32 @@ export default function App() {
         const isOwnerEmail = firebaseUser.email?.toLowerCase() === 'juanrael@gmail.com';
         let userData = await firebaseService.getUser(firebaseUser.uid);
         if (!userData) {
+          const defaultName = firebaseUser.displayName || 'Anonymous';
           const newUser: User = {
             uid: firebaseUser.uid,
-            name: firebaseUser.displayName || 'Anonymous',
+            name: defaultName,
             email: firebaseUser.email || '',
             role: isOwnerEmail ? 'Admin' : 'Collaborator',
-            photoURL: firebaseUser.photoURL || undefined
+            photoURL: firebaseUser.photoURL || undefined,
+            teams: [defaultName],
           };
           await firebaseService.createUser(newUser);
           userData = newUser;
-        } else if (isOwnerEmail && userData.role !== 'Admin') {
-          userData.role = 'Admin';
-          await firebaseService.createUser(userData);
+        } else {
+          let needsUpdate = false;
+          if (isOwnerEmail && userData.role !== 'Admin') {
+            userData.role = 'Admin';
+            needsUpdate = true;
+          }
+          if (!userData.teams || userData.teams.length === 0) {
+            userData.teams = [userData.name];
+            if (isOwnerEmail) {
+              needsUpdate = true;
+            }
+          }
+          if (needsUpdate) {
+            await firebaseService.createUser(userData);
+          }
         }
         setUser(userData);
       } else {
@@ -66,6 +83,14 @@ export default function App() {
     if (!user) return;
     const unsubscribe = firebaseService.subscribeUsers(setUsers);
     return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => { /* ignore */ });
+    }
   }, [user]);
 
   const handleLogin = async () => {
@@ -138,6 +163,16 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-2 md:gap-6 shrink-0">
+          {(user.role === 'Admin' || user.role === 'Teacher') && (
+            <button
+              onClick={() => setShowSendMessage(true)}
+              className="p-2.5 bg-slate-800/50 border-2 border-slate-700/50 hover:bg-slate-800 rounded-xl transition-all cursor-pointer shadow-sm active:scale-95"
+              aria-label="Enviar mensaje al equipo"
+              title="Enviar mensaje al equipo"
+            >
+              <Send className="w-5 h-5 text-slate-400" />
+            </button>
+          )}
           <NotificationBell userId={user.uid} />
 
           <div className="flex items-center gap-2 md:gap-4 md:border-l-2 md:pl-6 border-bento-border">
@@ -210,7 +245,7 @@ export default function App() {
                     setActiveSprint(sprint);
                     setSidebarOpen(false);
                   }}
-                  userRole={user.role}
+                  currentUser={user}
                   users={users}
                 />
               </motion.div>
@@ -223,7 +258,7 @@ export default function App() {
           <SprintSidebar
             activeSprint={activeSprint}
             onSelectSprint={setActiveSprint}
-            userRole={user.role}
+            currentUser={user}
             users={users}
           />
         </div>
@@ -286,6 +321,15 @@ export default function App() {
           onClose={() => setShowAdminPanel(false)}
           users={users}
           currentUserId={user.uid}
+        />
+      )}
+
+      {(user.role === 'Admin' || user.role === 'Teacher') && (
+        <SendMessageModal
+          isOpen={showSendMessage}
+          onClose={() => setShowSendMessage(false)}
+          currentUser={user}
+          users={users}
         />
       )}
     </div>

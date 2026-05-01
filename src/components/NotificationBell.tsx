@@ -1,15 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Notification } from '../types';
+import type { Notification as AppNotification } from '../types';
 import { Bell, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function NotificationBell({ userId }: { userId: string }) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const initializedRef = useRef(false);
 
   useEffect(() => {
-    const unsubscribe = firebaseService.subscribeNotifications(userId, setNotifications);
+    seenIdsRef.current = new Set();
+    initializedRef.current = false;
+    const unsubscribe = firebaseService.subscribeNotifications(userId, (incoming) => {
+      setNotifications(incoming);
+      if (!initializedRef.current) {
+        incoming.forEach(n => seenIdsRef.current.add(n.id));
+        initializedRef.current = true;
+        return;
+      }
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        incoming.forEach(n => {
+          if (!seenIdsRef.current.has(n.id) && !n.read) {
+            try {
+              new Notification('SPRINTAZ', {
+                body: n.message,
+                tag: n.id,
+              });
+            } catch (e) {
+              console.warn('Browser Notification failed:', e);
+            }
+          }
+          seenIdsRef.current.add(n.id);
+        });
+      } else {
+        incoming.forEach(n => seenIdsRef.current.add(n.id));
+      }
+    });
     return () => unsubscribe();
   }, [userId]);
 
@@ -36,7 +64,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="absolute right-0 mt-4 w-80 bg-bento-card border-2 border-bento-border rounded-2xl shadow-2xl z-30 overflow-hidden"
+              className="fixed md:absolute right-2 md:right-0 top-20 md:mt-4 w-[calc(100vw-1rem)] md:w-80 bg-bento-card border-2 border-bento-border rounded-2xl shadow-2xl z-30 overflow-hidden max-h-[60vh] md:max-h-96"
             >
               <div className="p-4 border-b-2 border-bento-border flex items-center justify-between bg-slate-800/10">
                 <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Notificaciones</span>
@@ -47,7 +75,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
                 )}
               </div>
 
-              <div className="max-h-96 overflow-y-auto custom-scrollbar">
+              <div className="max-h-80 md:max-h-96 overflow-y-auto custom-scrollbar">
                 {notifications.length === 0 ? (
                   <div className="p-10 text-center text-slate-600">
                     <CheckCheck className="w-10 h-10 mx-auto mb-3 opacity-10" />

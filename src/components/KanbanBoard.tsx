@@ -102,10 +102,21 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
 
     await firebaseService.updateTask(task.id, updates);
 
-    // Notify creator
-    if (task.createdBy !== currentUser.uid) {
-      await firebaseService.createNotification(task.createdBy, message);
+    // Notify all team members (excluding the actor)
+    const recipients = new Set<string>();
+    if (sprint.team) {
+      users.forEach(u => {
+        if (u.uid === currentUser.uid) return;
+        const uTeams = u.teams && u.teams.length > 0 ? u.teams : [u.name];
+        if (uTeams.includes(sprint.team!)) recipients.add(u.uid);
+      });
     }
+    if (task.createdBy && task.createdBy !== currentUser.uid) {
+      recipients.add(task.createdBy);
+    }
+    await Promise.all(
+      Array.from(recipients).map(uid => firebaseService.createNotification(uid, message))
+    );
   };
 
   const handleDragStart = (e: DragEvent, task: Task) => {

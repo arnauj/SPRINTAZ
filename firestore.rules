@@ -47,7 +47,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isOwner(userId);
-      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      // Owners can update their own data except `role` and `teams` (admin-only).
+      // Admins can update everything.
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'teams']))
         || isAdmin();
       allow delete: if isAdmin() && request.auth.uid != userId;
     }
@@ -55,7 +57,8 @@ service cloud.firestore {
     // --- Sprints ---
     function isValidSprint(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.createdBy == request.auth.uid;
+        && data.createdBy == request.auth.uid
+        && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 
     match /sprints/{sprintId} {

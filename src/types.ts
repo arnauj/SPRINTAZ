@@ -6,11 +6,13 @@ export interface User {
   email: string;
   role: UserRole;
   photoURL?: string;
+  teams?: string[];
 }
 
 export interface Sprint {
   id: string;
   name: string;
+  team?: string;
   startDate?: string;
   endDate?: string;
   isActive: boolean;

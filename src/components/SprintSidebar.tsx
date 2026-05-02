@@ -123,9 +123,9 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
   return (
     <aside className="w-72 flex flex-col gap-4 shrink-0 h-full">
       {/* Sprints panel */}
-      <div className="bg-white border border-bento-border rounded-2xl p-5 flex flex-col min-h-0 shadow-sm shrink-0">
+      <div className="bg-white border border-bento-border p-5 flex flex-col min-h-0 shadow-sm shrink-0">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xs font-bold uppercase text-bento-mute tracking-widest">Mis Proyectos</h2>
+          <h2 className="text-xs font-bold uppercase text-bento-mute tracking-widest">Sprints</h2>
           {canManageSprints && (
             <button
               onClick={handleOpenCreate}
@@ -146,7 +146,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
             <div
               key={sprint.id}
               onClick={() => onSelectSprint(sprint)}
-              className={`p-3 rounded-xl text-left transition-all cursor-pointer group border ${
+              className={`p-3 text-left transition-all cursor-pointer group border ${
                 activeSprint?.id === sprint.id
                   ? 'bg-amber-50 border-amber-300'
                   : 'bg-bento-card-hover border-bento-border hover:bg-amber-50/50'
@@ -200,7 +200,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
       </div>
 
       {/* Team panel */}
-      <div className="bg-white border border-bento-border rounded-2xl p-5 flex-1 flex flex-col shadow-sm overflow-hidden shrink-0">
+      <div className="bg-white border border-bento-border p-5 flex-1 flex flex-col shadow-sm overflow-hidden shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xs font-bold uppercase text-bento-mute tracking-widest">Equipo</h2>
           {isAdmin && (
@@ -268,7 +268,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Nuevo Proyecto</h3>
               <form onSubmit={handleCreateSprint} className="space-y-4">
@@ -329,7 +329,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border rounded-2xl p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Editar Proyecto</h3>
               <form onSubmit={handleSaveEditSprint} className="space-y-4">

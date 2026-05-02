@@ -168,7 +168,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
               className="flex items-center gap-2 text-sm font-medium text-bento-ink/70 hover:text-bento-ink transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Mis Proyectos</span>
+              <span>Sprint</span>
             </button>
           )}
         </div>
@@ -176,7 +176,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         <div className="justify-self-center text-center">
           <h2 className="text-base md:text-xl font-bold text-bento-ink flex items-center gap-2 justify-center">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            Proyecto: <span>{sprint.name}</span>
+            <span>{sprint.name}</span>
           </h2>
           {(range || remaining !== null) && (
             <div className="mt-1 flex items-center gap-2 justify-center text-xs text-bento-mute">
@@ -201,12 +201,12 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
               setPendingStatus('todo');
               setShowCreateModal(true);
             }}
-            className="bg-bento-ink hover:bg-black text-white px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
+            className="bg-bento-ink hover:bg-black text-white px-3 md:px-4 py-2 text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nueva</span>
           </button>
-          <span className="text-xs md:text-sm font-semibold text-bento-ink/70 px-3 py-2 rounded-xl bg-white/70 border border-bento-border">
+          <span className="text-xs md:text-sm font-semibold text-bento-ink/70 px-3 py-2 bg-white/70 border border-bento-border">
             {tasks.length} Tareas
           </span>
         </div>
@@ -218,7 +218,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
           return (
             <div
               key={column.id}
-              className="flex flex-col min-h-0 rounded-3xl overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center"
+              className="flex flex-col min-h-0 overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center"
               style={{ backgroundColor: column.tintSoft }}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
@@ -331,6 +331,16 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
   const ink = noteTextColor(noteColor);
   const isDark = ink === '#FFFFFF';
 
+  // Deterministic slight rotation per card for the realistic postit feel
+  const rotation = (() => {
+    if (!task.id) return 0;
+    let hash = 0;
+    for (let i = 0; i < task.id.length; i++) {
+      hash = (hash * 31 + task.id.charCodeAt(i)) | 0;
+    }
+    return (((Math.abs(hash) % 11) - 5) * 0.6);
+  })();
+
   const dateStr = task.createdAt?.toDate
     ? (() => {
         const d = task.createdAt.toDate();
@@ -343,10 +353,10 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       layout
       draggable
       onDragStart={onDragStart}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, y: 10, rotate: rotation }}
+      animate={{ opacity: 1, y: 0, rotate: rotation }}
       exit={{ opacity: 0, scale: 0.95 }}
-      whileHover={{ y: -3 }}
+      whileHover={{ y: -3, rotate: 0 }}
       style={{
         backgroundColor: noteColor,
         color: ink,
@@ -356,21 +366,27 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
     >
       <span className="note-tape" />
 
-      <div className="flex items-start justify-between gap-2 mb-1">
+      <div className="flex items-start gap-2 mb-1">
         <div
-          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border"
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border shrink-0"
           style={{
             backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.7)',
             borderColor: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.08)',
           }}
-          title={`Prioridad ${task.weight}`}
+          title={`Peso ${task.weight}`}
         >
           {task.weight}
         </div>
-        <div className="flex items-center gap-1">
+        <h5
+          className={`flex-1 min-w-0 font-bold text-sm leading-snug pt-0.5 ${isDone ? 'line-through opacity-70' : ''}`}
+          style={{ color: ink }}
+        >
+          {task.name}
+        </h5>
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => setShowOptions(!showOptions)}
-            className="p-1 rounded transition-all cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="p-1 transition-all cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100"
             style={{ color: ink }}
             aria-label="Opciones de tarea"
           >
@@ -385,7 +401,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-3 top-10 w-40 bg-white border border-bento-border rounded-xl shadow-xl z-20 overflow-hidden"
+                  className="absolute right-3 top-10 w-40 bg-white border border-bento-border shadow-xl z-20 overflow-hidden"
                   style={{ color: '#1F2937' }}
                 >
                   {canModify && (
@@ -430,13 +446,6 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
           </AnimatePresence>
         </div>
       </div>
-
-      <h5
-        className={`font-bold text-sm leading-snug pr-1 ${isDone ? 'line-through opacity-70' : ''}`}
-        style={{ color: ink }}
-      >
-        {task.name}
-      </h5>
 
       {task.description && (
         <p

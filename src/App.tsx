@@ -140,7 +140,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
-      <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 bg-white/80 backdrop-blur border border-bento-border rounded-2xl shadow-sm shrink-0 gap-2">
+      <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -278,7 +278,7 @@ export default function App() {
                 />
               </motion.div>
             ) : (
-              <div className="h-full bg-white/70 border border-bento-border rounded-2xl flex flex-col items-center justify-center text-bento-mute gap-4 p-6 text-center">
+              <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center text-bento-mute gap-4 p-6 text-center">
                 <Layers className="w-12 h-12 md:w-16 md:h-16 text-amber-300" />
                 <p className="text-base md:text-lg font-semibold text-bento-ink/70">Selecciona un proyecto del panel para abrir su tablero</p>
                 <button
@@ -293,7 +293,7 @@ export default function App() {
         </main>
       </div>
 
-      <footer className="h-9 md:h-10 bg-white/70 backdrop-blur border border-bento-border rounded-2xl flex items-center px-3 md:px-5 gap-2 md:gap-4 shrink-0">
+      <footer className="h-9 md:h-10 bg-white/70 backdrop-blur border border-bento-border flex items-center px-3 md:px-5 gap-2 md:gap-4 shrink-0">
         <div className="flex items-center gap-2 text-amber-600 shrink-0">
           <div className="w-1.5 h-1.5 rounded-full bg-amber-400"></div>
           <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">Sistema</span>

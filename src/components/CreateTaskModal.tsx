@@ -106,7 +106,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
             initial={{ scale: 0.96, opacity: 0, y: 16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 16 }}
-            className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            className="bg-white w-full max-w-3xl shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <button
               onClick={onClose}
@@ -151,7 +151,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
                     <div>
                       <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2">
-                        Prioridad: <span className="text-bento-ink">{weight}</span>
+                        Peso: <span className="text-bento-ink">{weight}</span>
                       </label>
                       <input
                         type="range"

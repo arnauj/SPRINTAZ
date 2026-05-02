@@ -143,7 +143,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
             initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 20 }}
-            className="bg-white border border-bento-border rounded-3xl w-full max-w-3xl shadow-xl relative flex flex-col max-h-[90vh] overflow-hidden"
+            className="bg-white border border-bento-border w-full max-w-3xl shadow-xl relative flex flex-col max-h-[90vh] overflow-hidden"
           >
             <div className="px-6 md:px-8 py-5 border-b border-bento-border flex items-center justify-between gap-4 bg-slate-50">
               <div className="flex items-center gap-3 min-w-0">
@@ -190,7 +190,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                 const isSelf = u.uid === currentUserId;
                 const colors = ROLE_COLORS[u.role] || ROLE_COLORS.Collaborator;
                 return (
-                  <div key={u.uid} className="rounded-2xl border border-bento-border bg-bento-card-hover p-4 transition-all">
+                  <div key={u.uid} className="border border-bento-border bg-bento-card-hover p-4 transition-all">
                     <div className="flex items-center gap-4">
                       {u.photoURL ? (
                         <img
@@ -256,7 +256,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                     initial={{ scale: 0.96, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.96, opacity: 0, y: 20 }}
-                    className="bg-white border border-bento-border rounded-3xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar relative"
+                    className="bg-white border border-bento-border p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar relative"
                   >
                     <button
                       onClick={cancelEdit}

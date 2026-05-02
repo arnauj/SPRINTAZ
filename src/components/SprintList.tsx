@@ -264,14 +264,15 @@ export default function SprintList({
                   <p className="text-xs text-bento-mute italic">Sin equipo</p>
                 )}
                 {canManageSprints && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         startEditSprint(sprint);
                       }}
-                      className="p-1.5 bg-white/80 hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
+                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
                       title="Editar sprint"
+                      aria-label="Editar sprint"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
@@ -280,8 +281,9 @@ export default function SprintList({
                         e.stopPropagation();
                         handleDeleteSprint(sprint);
                       }}
-                      className="p-1.5 bg-white/80 hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
                       title="Eliminar sprint"
+                      aria-label="Eliminar sprint"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -330,7 +332,7 @@ export default function SprintList({
                     type="text"
                     list="sprintlist-team-suggestions"
                     required
-                    placeholder="Ej: 1ºDAW"
+                    placeholder="Escribe un equipo nuevo o elige uno existente"
                     className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
                     value={newSprintTeam}
                     onChange={(e) => setNewSprintTeam(e.target.value)}
@@ -340,6 +342,27 @@ export default function SprintList({
                       <option key={t} value={t} />
                     ))}
                   </datalist>
+                  {allTeamsAcrossUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {allTeamsAcrossUsers.map((t) => {
+                        const selected = newSprintTeam === t;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setNewSprintTeam(t)}
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                              selected
+                                ? 'bg-amber-400 border-amber-400 text-bento-ink'
+                                : 'bg-white border-bento-border text-bento-mute hover:border-amber-400 hover:text-bento-ink'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
                     Solo los miembros de este equipo verán el sprint.
                   </p>
@@ -403,7 +426,7 @@ export default function SprintList({
                     type="text"
                     list="sprintlist-edit-team-suggestions"
                     required
-                    placeholder="Ej: 1ºDAW"
+                    placeholder="Escribe un equipo nuevo o elige uno existente"
                     className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
                     value={editTeam}
                     onChange={(e) => setEditTeam(e.target.value)}
@@ -413,6 +436,27 @@ export default function SprintList({
                       <option key={t} value={t} />
                     ))}
                   </datalist>
+                  {allTeamsAcrossUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {allTeamsAcrossUsers.map((t) => {
+                        const selected = editTeam === t;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setEditTeam(t)}
+                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                              selected
+                                ? 'bg-amber-400 border-amber-400 text-bento-ink'
+                                : 'bg-white border-bento-border text-bento-mute hover:border-amber-400 hover:text-bento-ink'
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <SprintStatusEditor
                   value={editStatuses}

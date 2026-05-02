@@ -17,14 +17,17 @@ const ROLE_COLORS: Record<UserRole, { bg: string; text: string }> = {
   Collaborator: { bg: 'bg-sky-400', text: 'text-sky-600' },
 };
 
+import { Project } from '../types';
+
 interface SprintSidebarProps {
+  activeProject: Project;
   activeSprint: Sprint | null;
   onSelectSprint: (sprint: Sprint | null) => void;
   currentUser: User;
   users: User[];
 }
 
-export default function SprintSidebar({ activeSprint, onSelectSprint, currentUser, users }: SprintSidebarProps) {
+export default function SprintSidebar({ activeProject, activeSprint, onSelectSprint, currentUser, users }: SprintSidebarProps) {
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
@@ -36,9 +39,9 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
   const userTeams = useMemo(() => currentUser.teams && currentUser.teams.length > 0 ? currentUser.teams : [currentUser.name], [currentUser]);
 
   useEffect(() => {
-    const unsubscribe = firebaseService.subscribeSprints(setSprints);
+    const unsubscribe = firebaseService.subscribeSprints(activeProject.id, setSprints);
     return () => unsubscribe();
-  }, []);
+  }, [activeProject.id]);
 
   const isOwnerEmail = auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
@@ -69,6 +72,7 @@ export default function SprintSidebar({ activeSprint, onSelectSprint, currentUse
     await firebaseService.createSprint({
       name: newSprintName.trim(),
       team: newSprintTeam.trim(),
+      projectId: activeProject.id,
       isActive: true,
       createdBy: auth.currentUser?.uid || '',
     });

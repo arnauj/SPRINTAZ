@@ -15,7 +15,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
-import { OperationType, Task, Sprint, User, Notification } from '../types';
+import { OperationType, Task, Sprint, User, Notification, Project } from '../types';
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo = {
@@ -111,11 +111,57 @@ export const firebaseService = {
     }
   },
 
+  // --- Projects ---
+  async createProject(project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) {
+    try {
+      const docRef = await addDoc(collection(db, 'projects'), {
+        ...project,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, 'projects');
+    }
+  },
+
+  subscribeProjects(callback: (projects: Project[]) => void) {
+    const q = query(collection(db, 'projects'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Project)));
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'projects'));
+  },
+
+  async updateProject(projectId: string, updates: Partial<Project>) {
+    try {
+      await updateDoc(doc(db, 'projects', projectId), {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `projects/${projectId}`);
+    }
+  },
+
+  async deleteProject(projectId: string) {
+    try {
+      await deleteDoc(doc(db, 'projects', projectId));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, `projects/${projectId}`);
+    }
+  },
+
   // --- Sprints ---
   async createSprint(sprint: Omit<Sprint, 'id' | 'createdAt' | 'updatedAt'>) {
     try {
       const docRef = await addDoc(collection(db, 'sprints'), {
         ...sprint,
+        statuses: sprint.statuses || [
+          { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
+          { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
+          { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
+          { id: 'done', name: 'Done', color: 'emerald', order: 3 }
+        ],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -125,8 +171,16 @@ export const firebaseService = {
     }
   },
 
-  subscribeSprints(callback: (sprints: Sprint[]) => void) {
-    const q = query(collection(db, 'sprints'), orderBy('createdAt', 'desc'));
+  subscribeSprints(projectId: string | null, callback: (sprints: Sprint[]) => void) {
+    if (!projectId) {
+      callback([]);
+      return () => {};
+    }
+    const q = query(
+      collection(db, 'sprints'),
+      where('projectId', '==', projectId),
+      orderBy('createdAt', 'desc')
+    );
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sprint)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));

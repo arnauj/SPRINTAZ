@@ -7,14 +7,15 @@ import {
 } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { firebaseService } from './services/firebaseService';
-import { User, Sprint } from './types';
+import { User, Sprint, Project } from './types';
 import {
   LogOut,
   Layers,
   Menu,
   X,
   Shield,
-  Send
+  Send,
+  ChevronLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -24,10 +25,12 @@ import NotificationBell from './components/NotificationBell';
 import ProfileEditModal from './components/ProfileEditModal';
 import AdminUsersPanel from './components/AdminUsersPanel';
 import SendMessageModal from './components/SendMessageModal';
+import ProjectSelector from './components/ProjectSelector';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -124,7 +127,7 @@ export default function App() {
           <div className="space-y-4">
             <Layers className="w-16 h-16 mx-auto text-amber-500" />
             <h1 className="text-4xl font-bold tracking-tight">SPRINTAZ</h1>
-            <p className="text-bento-mute">Sistema de Planificación Rápida e Iterativa para Nuevas Tareas Ágiles del Zonzamas.</p>
+            <p className="text-bento-mute">Gestiona tus proyectos, sprints y tareas de forma ágil y colaborativa.</p>
           </div>
           <button
             onClick={handleLogin}
@@ -142,6 +145,16 @@ export default function App() {
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
       <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-1 md:gap-2">
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+          {activeProject && activeSprint && (
+            <button
+              onClick={() => setActiveSprint(null)}
+              className="p-1.5 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-bento-ink transition-colors cursor-pointer shrink-0 hidden md:flex"
+              aria-label="Volver a sprints"
+              title="Volver a sprints"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
           <button
             onClick={() => setSidebarOpen(true)}
             className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-bento-ink transition-colors cursor-pointer shrink-0"
@@ -149,10 +162,30 @@ export default function App() {
           >
             <Menu className="w-5 h-5" />
           </button>
+          {activeProject && (
+            <button
+              onClick={() => {
+                setActiveProject(null);
+                setActiveSprint(null);
+              }}
+              className="p-1.5 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-bento-ink transition-colors cursor-pointer shrink-0 md:hidden"
+              aria-label="Volver a proyectos"
+              title="Volver a proyectos"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
           <div className="h-8 w-8 md:h-9 md:w-9 bg-bento-ink rounded-lg flex items-center justify-center font-bold text-white shrink-0">Z</div>
           <div className="min-w-0 leading-tight">
             <h1 className="text-base font-bold tracking-tight truncate">SPRINTAZ</h1>
-            <p className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:block">CIFP Zonzamas</p>
+            {activeProject && (
+              <p className="text-[9px] uppercase font-semibold text-amber-600 tracking-widest hidden md:block truncate">
+                {activeProject.name}
+              </p>
+            )}
+            {!activeProject && (
+              <p className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:block">CIFP Zonzamas</p>
+            )}
           </div>
         </div>
 
@@ -210,7 +243,7 @@ export default function App() {
       <div className="flex-1 flex gap-3 md:gap-4 min-h-0 relative">
         {/* Mobile sidebar overlay */}
         <AnimatePresence>
-          {sidebarOpen && (
+          {sidebarOpen && activeProject && (
             <>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -233,24 +266,28 @@ export default function App() {
                 >
                   <X className="w-5 h-5" />
                 </button>
-                <SprintSidebar
-                  activeSprint={activeSprint}
-                  onSelectSprint={(sprint) => {
-                    setActiveSprint(sprint);
-                    setSidebarOpen(false);
-                  }}
-                  currentUser={user}
-                  users={users}
-                />
+                {activeProject && (
+                  <SprintSidebar
+                    activeProject={activeProject}
+                    activeSprint={activeSprint}
+                    onSelectSprint={(sprint) => {
+                      setActiveSprint(sprint);
+                      setSidebarOpen(false);
+                    }}
+                    currentUser={user}
+                    users={users}
+                  />
+                )}
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
         {/* Desktop sidebar — hidden when a sprint is open to give room to the board */}
-        {!activeSprint && (
+        {activeProject && !activeSprint && (
           <div className="hidden md:flex">
             <SprintSidebar
+              activeProject={activeProject}
               activeSprint={activeSprint}
               onSelectSprint={setActiveSprint}
               currentUser={user}
@@ -261,33 +298,46 @@ export default function App() {
 
         <main className="flex-1 min-w-0 flex flex-col">
           <AnimatePresence mode="wait">
-            {activeSprint ? (
-              <motion.div
-                key={activeSprint.id}
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.02 }}
-                transition={{ duration: 0.2 }}
-                className="h-full"
-              >
-                <KanbanBoard
-                  sprint={activeSprint}
-                  currentUser={user}
-                  users={users}
-                  onBack={() => setActiveSprint(null)}
-                />
-              </motion.div>
-            ) : (
-              <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center text-bento-mute gap-4 p-6 text-center">
-                <Layers className="w-12 h-12 md:w-16 md:h-16 text-amber-300" />
-                <p className="text-base md:text-lg font-semibold text-bento-ink/70">Selecciona un proyecto del panel para abrir su tablero</p>
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="md:hidden mt-2 px-4 py-2 bg-bento-ink hover:bg-black text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+            {activeProject ? (
+              activeSprint ? (
+                <motion.div
+                  key={activeSprint.id}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.2 }}
+                  className="h-full"
                 >
-                  Ver sprints
-                </button>
-              </div>
+                  <KanbanBoard
+                    sprint={activeSprint}
+                    currentUser={user}
+                    users={users}
+                    onBack={() => setActiveSprint(null)}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={activeProject.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center text-bento-mute gap-4 p-6 text-center"
+                >
+                  <Layers className="w-12 h-12 md:w-16 md:h-16 text-amber-300" />
+                  <p className="text-base md:text-lg font-semibold text-bento-ink/70">Selecciona un sprint del panel para abrir su tablero</p>
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="md:hidden mt-2 px-4 py-2 bg-bento-ink hover:bg-black text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+                  >
+                    Ver sprints
+                  </button>
+                </motion.div>
+              )
+            ) : (
+              <ProjectSelector
+                currentUser={user}
+                onSelectProject={setActiveProject}
+              />
             )}
           </AnimatePresence>
         </main>

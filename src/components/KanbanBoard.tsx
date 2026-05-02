@@ -1,6 +1,6 @@
-import { useState, useEffect, type DragEvent } from 'react';
+import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Task, Sprint, User, TaskStatus } from '../types';
+import { Task, Sprint, User, TaskStatus, SprintStatus } from '../types';
 import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
@@ -12,49 +12,19 @@ interface KanbanBoardProps {
   onBack?: () => void;
 }
 
-interface ColumnConfig {
-  id: TaskStatus;
-  label: string;
+interface ColumnConfig extends SprintStatus {
   tint: string;
   tintSoft: string;
   ink: string;
   countDot: string;
 }
 
-const COLUMNS: ColumnConfig[] = [
-  {
-    id: 'backlog',
-    label: 'Backlog',
-    tint: 'var(--color-col-backlog)',
-    tintSoft: 'var(--color-col-backlog-soft)',
-    ink: '#a64a52',
-    countDot: '#E58997',
-  },
-  {
-    id: 'todo',
-    label: 'Aprobadas',
-    tint: 'var(--color-col-todo)',
-    tintSoft: 'var(--color-col-todo-soft)',
-    ink: '#8a6a18',
-    countDot: '#E5C36A',
-  },
-  {
-    id: 'in_progress',
-    label: 'Doing',
-    tint: 'var(--color-col-doing)',
-    tintSoft: 'var(--color-col-doing-soft)',
-    ink: '#3a4292',
-    countDot: '#7E89D8',
-  },
-  {
-    id: 'done',
-    label: 'Desplegado',
-    tint: 'var(--color-col-done)',
-    tintSoft: 'var(--color-col-done-soft)',
-    ink: '#2f6f4d',
-    countDot: '#62B58A',
-  },
-];
+const STATUS_COLORS: Record<string, { tint: string; tintSoft: string; ink: string; countDot: string }> = {
+  'backlog': { tint: 'var(--color-col-backlog)', tintSoft: 'var(--color-col-backlog-soft)', ink: '#a64a52', countDot: '#E58997' },
+  'todo': { tint: 'var(--color-col-todo)', tintSoft: 'var(--color-col-todo-soft)', ink: '#8a6a18', countDot: '#E5C36A' },
+  'in_progress': { tint: 'var(--color-col-doing)', tintSoft: 'var(--color-col-doing-soft)', ink: '#3a4292', countDot: '#7E89D8' },
+  'done': { tint: 'var(--color-col-done)', tintSoft: 'var(--color-col-done-soft)', ink: '#2f6f4d', countDot: '#62B58A' },
+};
 
 const NOTE_COLORS = ['#A8E6C9', '#FBE89D', '#F7CD7A', '#FBB380', '#F7B6BC', '#F08585', '#2F4FCF'];
 
@@ -84,6 +54,21 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
+  const columns = useMemo(() => {
+    const statuses = sprint.statuses || [
+      { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
+      { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
+      { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
+      { id: 'done', name: 'Done', color: 'emerald', order: 3 }
+    ];
+    return statuses
+      .sort((a, b) => a.order - b.order)
+      .map(status => ({
+        ...status,
+        ...(STATUS_COLORS[status.id] || { tint: '#f0f0f0', tintSoft: '#fafafa', ink: '#333', countDot: '#999' })
+      })) as ColumnConfig[];
+  }, [sprint.statuses]);
+
   useEffect(() => {
     const unsubscribe = firebaseService.subscribeTasks(sprint.id, setTasks);
     return () => unsubscribe();
@@ -93,7 +78,8 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
     if (task.status === newStatus) return;
 
     const updates: Partial<Task> = { status: newStatus };
-    const newLabel = COLUMNS.find(c => c.id === newStatus)?.label;
+    const statusConfig = (sprint.statuses || []).find(s => s.id === newStatus);
+    const newLabel = statusConfig?.name || newStatus;
     let message = `Tarea "${task.name}" movida a ${newLabel}`;
 
     if (newStatus === 'in_progress') {
@@ -233,8 +219,8 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         </div>
       </header>
 
-      <div className="flex-1 flex md:grid md:grid-cols-4 gap-3 md:gap-4 h-full min-h-0 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-2 md:pb-0">
-        {COLUMNS.map((column) => {
+      <div className={`flex-1 flex md:grid gap-3 md:gap-4 h-full min-h-0 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-2 md:pb-0`} style={{ gridTemplateColumns: `repeat(${Math.min(columns.length, 4)}, minmax(0, 1fr))` }}>
+        {columns.map((column) => {
           const count = getTasksByStatus(column.id).length;
           return (
             <div
@@ -253,7 +239,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
                     className="text-sm font-bold tracking-tight"
                     style={{ color: column.ink }}
                   >
-                    {column.label}
+                    {column.name}
                   </h3>
                   <span
                     className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white"
@@ -283,6 +269,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
                       task={task}
                       users={users}
                       column={column}
+                      columns={columns}
                       canModify={canModify(task)}
                       onDragStart={(e) => handleDragStart(e, task)}
                       onStatusChange={(status) => handleStatusChange(task, status)}
@@ -322,6 +309,7 @@ interface TaskCardProps {
   task: Task;
   users: User[];
   column: ColumnConfig;
+  columns: ColumnConfig[];
   canModify: boolean;
   onDragStart: (e: DragEvent) => void;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
@@ -349,7 +337,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
+function TaskCard({ task, users, column, columns, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -442,7 +430,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                   className="absolute right-0 top-7 w-40 bg-white border border-bento-border shadow-xl z-20 overflow-hidden"
                   style={{ color: '#1F2937' }}
                 >
-                  {COLUMNS.filter(c => c.id !== task.status).map(col => (
+                  {columns.filter(c => c.id !== task.status).map(col => (
                     <button
                       key={col.id}
                       onClick={() => {
@@ -451,7 +439,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                       }}
                       className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 border-b border-bento-border last:border-b-0 cursor-pointer"
                     >
-                      → {col.label}
+                      → {col.name}
                     </button>
                   ))}
                 </motion.div>

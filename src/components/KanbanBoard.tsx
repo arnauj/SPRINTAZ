@@ -550,21 +550,41 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
             </>
           )}
           {assignedUser && (
-            <div
-              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm ml-1"
-              style={{ backgroundColor: column.countDot }}
-              title={`Asignada: ${assignedUser.name}`}
-            >
-              {assignedUser.name[0]}
-            </div>
+            assignedUser.photoURL ? (
+              <img
+                src={assignedUser.photoURL}
+                alt={assignedUser.name}
+                referrerPolicy="no-referrer"
+                title={`Asignada: ${assignedUser.name}`}
+                className="h-5 w-5 rounded-full object-cover shadow-sm ml-1 border border-white/60"
+              />
+            ) : (
+              <div
+                className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm ml-1"
+                style={{ backgroundColor: column.countDot }}
+                title={`Asignada: ${assignedUser.name}`}
+              >
+                {assignedUser.name[0]}
+              </div>
+            )
           )}
           {finishedByUser && !assignedUser && (
-            <div
-              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm bg-emerald-500 ml-1"
-              title={`Hecho por: ${finishedByUser.name}`}
-            >
-              {finishedByUser.name[0]}
-            </div>
+            finishedByUser.photoURL ? (
+              <img
+                src={finishedByUser.photoURL}
+                alt={finishedByUser.name}
+                referrerPolicy="no-referrer"
+                title={`Hecho por: ${finishedByUser.name}`}
+                className="h-5 w-5 rounded-full object-cover shadow-sm ml-1 border border-white/60"
+              />
+            ) : (
+              <div
+                className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm bg-emerald-500 ml-1"
+                title={`Hecho por: ${finishedByUser.name}`}
+              >
+                {finishedByUser.name[0]}
+              </div>
+            )
           )}
         </div>
       </div>

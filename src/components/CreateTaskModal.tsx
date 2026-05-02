@@ -157,7 +157,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/30 backdrop-blur-sm">
           <motion.div
             initial={{ scale: 0.96, opacity: 0, y: 16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -166,13 +166,13 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
           >
             <button
               onClick={onClose}
-              className="absolute top-5 right-5 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer text-bento-mute"
+              className="absolute top-3 right-3 sm:top-5 sm:right-5 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer text-bento-mute z-10"
               aria-label="Cerrar"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="px-8 pt-7 pb-6">
+            <div className="px-4 sm:px-8 pt-7 pb-6">
               <h3 className="text-xs font-bold tracking-[0.18em] uppercase text-bento-ink mb-6">
                 {isEditMode ? 'Editar Tarea' : 'Nueva Tarea'}
               </h3>
@@ -305,7 +305,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                       <input
                         type="text"
                         placeholder="Escribe un comentario…"
-                        className="flex-1 px-4 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
+                        className="flex-1 min-w-0 px-4 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         onKeyDown={(e) => {
@@ -319,7 +319,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         type="button"
                         onClick={addComment}
                         disabled={!newComment.trim()}
-                        className="w-11 h-11 rounded-xl bg-bento-ink text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        className="w-11 h-11 rounded-xl bg-bento-ink text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95 shrink-0"
                         title="Añadir comentario"
                       >
                         <Plus className="w-4 h-4" />
@@ -357,18 +357,18 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         ))}
                       </div>
                     )}
-                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                    <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_auto] gap-2">
                       <input
                         type="text"
                         placeholder="Título del enlace"
-                        className="px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
+                        className="col-span-2 sm:col-span-1 min-w-0 px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
                         value={linkTitle}
                         onChange={(e) => setLinkTitle(e.target.value)}
                       />
                       <input
                         type="url"
                         placeholder="https://…"
-                        className="px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
+                        className="min-w-0 px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
                         value={linkUrl}
                         onChange={(e) => setLinkUrl(e.target.value)}
                       />
@@ -376,7 +376,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         type="button"
                         onClick={addLink}
                         disabled={!linkTitle.trim() || !linkUrl.trim()}
-                        className="w-11 h-11 rounded-xl bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        className="w-11 h-11 rounded-xl bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95 shrink-0"
                         title="Añadir enlace"
                       >
                         <Plus className="w-4 h-4" />
@@ -409,8 +409,8 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         ))}
                       </div>
                     )}
-                    <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                      <div>
+                    <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                      <div className="col-span-2 sm:col-span-1 min-w-0">
                         <p className="text-[10px] text-bento-mute mb-1">Cuando llegue a</p>
                         <select
                           value={alertStatus}
@@ -422,7 +422,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                           ))}
                         </select>
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <p className="text-[10px] text-bento-mute mb-1">Avisar a</p>
                         <input
                           type="email"
@@ -442,7 +442,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         type="button"
                         onClick={addAlert}
                         disabled={!alertEmail.trim()}
-                        className="w-11 h-11 rounded-xl bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        className="w-11 h-11 rounded-xl bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95 shrink-0"
                         title="Añadir alerta"
                       >
                         <Plus className="w-4 h-4" />

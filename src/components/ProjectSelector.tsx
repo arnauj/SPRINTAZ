@@ -53,24 +53,7 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
           </p>
         </motion.div>
 
-        {projects.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-8"
-          >
-            <p className="text-bento-mute mb-6">
-              Aún no hay proyectos. Crea uno para comenzar.
-            </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 bg-bento-ink text-white font-semibold px-6 py-3 rounded-xl hover:bg-black transition-colors cursor-pointer"
-            >
-              <Plus className="w-5 h-5" />
-              Crear Primer Proyecto
-            </button>
-          </motion.div>
-        ) : (
+        {projects.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {projects.map((project) => (
               <motion.button

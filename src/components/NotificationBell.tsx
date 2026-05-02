@@ -61,7 +61,13 @@ export default function NotificationBell({ userId }: { userId: string }) {
       <AnimatePresence>
         {showDropdown && (
           <>
-            <div className="fixed inset-0 z-[1000]" onClick={() => setShowDropdown(false)} />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[1000] bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowDropdown(false)}
+            />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -87,7 +93,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
                   notifications.map(notif => (
                     <div
                       key={notif.id}
-                      className={`px-4 py-4 md:py-3 border-b border-bento-border hover:bg-slate-50 transition-colors ${!notif.read ? 'bg-amber-50' : ''}`}
+                      className={`px-4 py-4 md:py-3 border-b border-bento-border hover:bg-slate-50 transition-colors ${!notif.read ? 'bg-amber-50' : 'bg-white'}`}
                     >
                       <p className={`text-base md:text-sm leading-snug break-words ${!notif.read ? 'text-bento-ink font-semibold' : 'text-slate-700'}`}>{notif.message}</p>
                       <p className="text-[11px] md:text-[10px] text-bento-mute mt-2 font-mono uppercase">

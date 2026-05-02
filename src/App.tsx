@@ -72,6 +72,11 @@ export default function App() {
           }
         }
         setUser(userData);
+
+        if (userData.role === 'Admin' || userData.role === 'Teacher') {
+          firebaseService.migrateOrphanSprintsToProject('Epyca', firebaseUser.uid)
+            .catch(err => console.warn('Sprint migration skipped:', err));
+        }
       } else {
         setUser(null);
       }

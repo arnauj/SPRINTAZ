@@ -52,7 +52,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       >
         <Bell className="w-4 h-4 text-bento-ink" />
         {unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 bg-rose-500 border border-white text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-rose-500 border border-white text-white text-[9px] font-bold rounded-full flex items-center justify-center">
             {unreadCount}
           </span>
         )}

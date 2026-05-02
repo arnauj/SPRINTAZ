@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -11,15 +11,15 @@ import { User, Sprint, Project } from './types';
 import {
   LogOut,
   Layers,
-  Menu,
-  X,
   Shield,
   Send,
-  ChevronLeft
+  ChevronRight,
+  FolderOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import SprintSidebar from './components/SprintSidebar';
+import SprintList from './components/SprintList';
 import KanbanBoard from './components/KanbanBoard';
 import NotificationBell from './components/NotificationBell';
 import ProfileEditModal from './components/ProfileEditModal';
@@ -33,10 +33,10 @@ export default function App() {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
   const [users, setUsers] = useState<User[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
+  const didAutoSelectProject = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -94,11 +94,13 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    didAutoSelectProject.current = false;
     const unsubscribe = firebaseService.subscribeProjects((projects) => {
-      if (projects.length > 0) {
-        const epycaProject = projects.find(p => p.name === 'Epyca');
-        setActiveProject(epycaProject || projects[0]);
-      }
+      if (didAutoSelectProject.current) return;
+      if (projects.length === 0) return;
+      didAutoSelectProject.current = true;
+      const epycaProject = projects.find(p => p.name === 'Epyca');
+      setActiveProject(epycaProject || projects[0]);
     });
     return () => unsubscribe();
   }, [user]);
@@ -161,46 +163,52 @@ export default function App() {
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
       <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-1 md:gap-2">
         <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
-          {activeProject && activeSprint && (
-            <button
-              onClick={() => setActiveSprint(null)}
-              className="p-1.5 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-bento-ink transition-colors cursor-pointer shrink-0 hidden md:flex"
-              aria-label="Volver a sprints"
-              title="Volver a sprints"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
           <button
-            onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-bento-ink transition-colors cursor-pointer shrink-0"
-            aria-label="Abrir menú"
+            onClick={() => {
+              setActiveSprint(null);
+              setActiveProject(null);
+              didAutoSelectProject.current = true;
+            }}
+            className="h-8 w-8 md:h-9 md:w-9 bg-bento-ink rounded-lg flex items-center justify-center font-bold text-white shrink-0 hover:bg-black transition-colors cursor-pointer"
+            title="SPRINTAZ"
+            aria-label="Inicio"
           >
-            <Menu className="w-5 h-5" />
+            Z
           </button>
-          {activeProject && (
-            <button
-              onClick={() => {
-                setActiveProject(null);
-                setActiveSprint(null);
-              }}
-              className="p-1.5 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-bento-ink transition-colors cursor-pointer shrink-0 md:hidden"
-              aria-label="Volver a proyectos"
-              title="Volver a proyectos"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-          )}
-          <div className="h-8 w-8 md:h-9 md:w-9 bg-bento-ink rounded-lg flex items-center justify-center font-bold text-white shrink-0">Z</div>
-          <div className="min-w-0 leading-tight">
-            <h1 className="text-base font-bold tracking-tight truncate">SPRINTAZ</h1>
+          <div className="min-w-0 leading-tight flex items-center gap-1.5 md:gap-2 flex-wrap">
+            <h1 className="text-base font-bold tracking-tight">SPRINTAZ</h1>
             {activeProject && (
-              <p className="text-[9px] uppercase font-semibold text-amber-600 tracking-widest hidden md:block truncate">
-                {activeProject.name}
-              </p>
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-bento-mute shrink-0" />
+                <button
+                  onClick={() => {
+                    setActiveSprint(null);
+                    setActiveProject(null);
+                    didAutoSelectProject.current = true;
+                  }}
+                  className="flex items-center gap-1 text-xs md:text-sm font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer min-w-0"
+                  title="Cambiar de proyecto"
+                >
+                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate max-w-[8rem] md:max-w-[14rem]">{activeProject.name}</span>
+                </button>
+              </>
+            )}
+            {activeProject && activeSprint && (
+              <>
+                <ChevronRight className="w-3.5 h-3.5 text-bento-mute shrink-0" />
+                <button
+                  onClick={() => setActiveSprint(null)}
+                  className="flex items-center gap-1 text-xs md:text-sm font-bold text-bento-ink hover:text-amber-700 hover:bg-amber-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer min-w-0"
+                  title="Ver todos los sprints"
+                >
+                  <Layers className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate max-w-[7rem] md:max-w-[12rem]">{activeSprint.name}</span>
+                </button>
+              </>
             )}
             {!activeProject && (
-              <p className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:block">CIFP Zonzamas</p>
+              <span className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:inline">· CIFP Zonzamas</span>
             )}
           </div>
         </div>
@@ -257,61 +265,6 @@ export default function App() {
       </header>
 
       <div className="flex-1 flex gap-3 md:gap-4 min-h-0 relative">
-        {/* Mobile sidebar overlay */}
-        <AnimatePresence>
-          {sidebarOpen && activeProject && (
-            <>
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setSidebarOpen(false)}
-                className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 md:hidden"
-              />
-              <motion.div
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'tween', duration: 0.25 }}
-                className="fixed left-0 top-0 bottom-0 z-50 p-3 md:hidden flex flex-col gap-3"
-              >
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="self-end p-2 bg-white border border-bento-border hover:bg-slate-50 rounded-xl text-bento-ink transition-colors cursor-pointer shadow-sm"
-                  aria-label="Cerrar menú"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                {activeProject && (
-                  <SprintSidebar
-                    activeProject={activeProject}
-                    activeSprint={activeSprint}
-                    onSelectSprint={(sprint) => {
-                      setActiveSprint(sprint);
-                      setSidebarOpen(false);
-                    }}
-                    currentUser={user}
-                    users={users}
-                  />
-                )}
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
-
-        {/* Desktop sidebar — hidden when a sprint is open to give room to the board */}
-        {activeProject && !activeSprint && (
-          <div className="hidden md:flex">
-            <SprintSidebar
-              activeProject={activeProject}
-              activeSprint={activeSprint}
-              onSelectSprint={setActiveSprint}
-              currentUser={user}
-              users={users}
-            />
-          </div>
-        )}
-
         <main className="flex-1 min-w-0 flex flex-col">
           <AnimatePresence mode="wait">
             {activeProject ? (
@@ -337,26 +290,38 @@ export default function App() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 20 }}
-                  className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center text-bento-mute gap-4 p-6 text-center"
+                  className="h-full"
                 >
-                  <Layers className="w-12 h-12 md:w-16 md:h-16 text-amber-300" />
-                  <p className="text-base md:text-lg font-semibold text-bento-ink/70">Selecciona un sprint del panel para abrir su tablero</p>
-                  <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="md:hidden mt-2 px-4 py-2 bg-bento-ink hover:bg-black text-white rounded-xl text-sm font-semibold transition-colors cursor-pointer"
-                  >
-                    Ver sprints
-                  </button>
+                  <SprintList
+                    project={activeProject}
+                    currentUser={user}
+                    users={users}
+                    onSelectSprint={setActiveSprint}
+                    onChangeProject={() => {
+                      setActiveSprint(null);
+                      setActiveProject(null);
+                      didAutoSelectProject.current = true;
+                    }}
+                  />
                 </motion.div>
               )
             ) : (
               <ProjectSelector
                 currentUser={user}
-                onSelectProject={setActiveProject}
+                onSelectProject={(project) => {
+                  didAutoSelectProject.current = true;
+                  setActiveProject(project);
+                }}
               />
             )}
           </AnimatePresence>
         </main>
+
+        {activeProject && !activeSprint && (
+          <div className="hidden lg:flex">
+            <SprintSidebar currentUser={user} users={users} />
+          </div>
+        )}
       </div>
 
       <footer className="h-9 md:h-10 bg-white/70 backdrop-blur border border-bento-border flex items-center px-3 md:px-5 gap-2 md:gap-4 shrink-0">

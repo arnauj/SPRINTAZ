@@ -23,6 +23,26 @@ export interface Sprint {
 
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done';
 
+export interface TaskComment {
+  id: string;
+  text: string;
+  authorId: string;
+  authorName: string;
+  createdAt: number;
+}
+
+export interface TaskLink {
+  id: string;
+  title: string;
+  url: string;
+}
+
+export interface TaskEmailAlert {
+  id: string;
+  status: TaskStatus;
+  email: string;
+}
+
 export interface Task {
   id: string;
   sprintId: string;
@@ -36,6 +56,9 @@ export interface Task {
   createdBy: string;
   createdAt: any;
   updatedAt: any;
+  comments?: TaskComment[];
+  links?: TaskLink[];
+  emailAlerts?: TaskEmailAlert[];
 }
 
 export interface Notification {

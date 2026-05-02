@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Task, TaskStatus, User } from '../types';
-import { X, Bell, Link as LinkIcon, MessageSquare, Plus, Trash2, Pencil } from 'lucide-react';
+import { Task, TaskStatus, User, TaskComment, TaskLink, TaskEmailAlert } from '../types';
+import { X, Bell, Link as LinkIcon, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -21,6 +21,12 @@ const COLOR_OPTIONS: { value: string; label: string }[] = [
   { value: '#2F4FCF', label: 'Azul' },
 ];
 
+const HEX_RE = /^#([0-9a-fA-F]{6})$/;
+
+function genId() {
+  return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,11 +43,14 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   const [color, setColor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Local-only enhancements: comments, links, alerts. Persisted only when editing
-  // an existing task — these are stored as ad-hoc fields on the task document.
-  const [comment, setComment] = useState('');
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+
+  const [links, setLinks] = useState<TaskLink[]>([]);
   const [linkTitle, setLinkTitle] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+
+  const [emailAlerts, setEmailAlerts] = useState<TaskEmailAlert[]>([]);
   const [alertEmail, setAlertEmail] = useState('');
   const [alertStatus, setAlertStatus] = useState<TaskStatus>('done');
 
@@ -54,19 +63,58 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
         setWeight(editingTask.weight || 5);
         setDescription(editingTask.description || '');
         setColor(editingTask.color || null);
+        setComments(editingTask.comments || []);
+        setLinks(editingTask.links || []);
+        setEmailAlerts(editingTask.emailAlerts || []);
       } else {
         setName('');
         setWeight(5);
         setDescription('');
         setColor(null);
+        setComments([]);
+        setLinks([]);
+        setEmailAlerts([]);
       }
-      setComment('');
+      setNewComment('');
       setLinkTitle('');
       setLinkUrl('');
       setAlertEmail('');
       setAlertStatus('done');
     }
   }, [isOpen, editingTask]);
+
+  const addComment = () => {
+    const text = newComment.trim();
+    if (!text) return;
+    setComments(prev => [
+      ...prev,
+      { id: genId(), text, authorId: currentUser.uid, authorName: currentUser.name, createdAt: Date.now() },
+    ]);
+    setNewComment('');
+  };
+
+  const removeComment = (id: string) => setComments(prev => prev.filter(c => c.id !== id));
+
+  const addLink = () => {
+    const t = linkTitle.trim();
+    const u = linkUrl.trim();
+    if (!t || !u) return;
+    const safeUrl = /^https?:\/\//i.test(u) ? u : `https://${u}`;
+    setLinks(prev => [...prev, { id: genId(), title: t, url: safeUrl }]);
+    setLinkTitle('');
+    setLinkUrl('');
+  };
+
+  const removeLink = (id: string) => setLinks(prev => prev.filter(l => l.id !== id));
+
+  const addAlert = () => {
+    const e = alertEmail.trim();
+    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return;
+    setEmailAlerts(prev => [...prev, { id: genId(), status: alertStatus, email: e }]);
+    setAlertEmail('');
+  };
+
+  const removeAlert = (id: string) => setEmailAlerts(prev => prev.filter(a => a.id !== id));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +128,9 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
           description,
           weight,
           color: color || '',
+          comments,
+          links,
+          emailAlerts,
         });
       } else {
         await firebaseService.createTask({
@@ -90,6 +141,9 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
           sprintId,
           createdBy: currentUser.uid,
           ...(color ? { color } : {}),
+          ...(comments.length ? { comments } : {}),
+          ...(links.length ? { links } : {}),
+          ...(emailAlerts.length ? { emailAlerts } : {}),
         });
       }
       onClose();
@@ -97,6 +151,8 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
       setSubmitting(false);
     }
   };
+
+  const customColorActive = color !== null && !COLOR_OPTIONS.some(o => o.value === color);
 
   return (
     <AnimatePresence>
@@ -106,7 +162,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
             initial={{ scale: 0.96, opacity: 0, y: 16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 16 }}
-            className="bg-white rounded-3xl w-full max-w-3xl shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
+            className="bg-white w-full max-w-3xl shadow-2xl relative overflow-hidden max-h-[92vh] overflow-y-auto custom-scrollbar"
           >
             <button
               onClick={onClose}
@@ -151,7 +207,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                   <div className="grid grid-cols-[1fr_auto] gap-4 items-end">
                     <div>
                       <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2">
-                        Prioridad: <span className="text-bento-ink">{weight}</span>
+                        Peso: <span className="text-bento-ink">{weight}</span>
                       </label>
                       <input
                         type="range"
@@ -188,6 +244,33 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                           />
                         );
                       })}
+                      <label
+                        title="Color personalizado"
+                        className={`relative w-7 h-7 rounded-full cursor-pointer transition-all overflow-hidden border-2 border-dashed ${
+                          customColorActive ? 'ring-2 ring-offset-2 ring-bento-ink scale-110 border-transparent' : 'border-bento-border hover:scale-110'
+                        }`}
+                        style={customColorActive ? { backgroundColor: color! } : { background: 'conic-gradient(from 0deg, #f87171, #fbbf24, #34d399, #60a5fa, #a78bfa, #f87171)' }}
+                      >
+                        <input
+                          type="color"
+                          value={customColorActive ? color! : '#ffffff'}
+                          onChange={(e) => setColor(e.target.value)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          aria-label="Elegir color personalizado"
+                        />
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="#hex"
+                        value={customColorActive ? color! : ''}
+                        onChange={(e) => {
+                          const v = e.target.value.trim();
+                          if (HEX_RE.test(v)) setColor(v.toLowerCase());
+                          else if (v === '') setColor(null);
+                          else setColor(v);
+                        }}
+                        className="w-24 px-2 py-1.5 text-xs font-mono bg-white border border-bento-border focus:border-amber-400 rounded-lg outline-none text-bento-ink"
+                      />
                     </div>
                   </div>
                 </div>
@@ -196,21 +279,48 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                 <div className="space-y-5">
                   <div>
                     <label className="text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5" /> Comentarios
+                      <MessageSquare className="w-3.5 h-3.5" /> Comentarios {comments.length > 0 && <span className="text-bento-ink">({comments.length})</span>}
                     </label>
+                    {comments.length > 0 && (
+                      <div className="mb-2 max-h-32 overflow-y-auto custom-scrollbar flex flex-col gap-1.5">
+                        {comments.map(c => (
+                          <div key={c.id} className="bg-slate-50 border border-bento-border rounded-lg px-3 py-2 flex items-start gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] uppercase font-bold tracking-widest text-bento-mute">{c.authorName}</p>
+                              <p className="text-sm text-bento-ink break-words">{c.text}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeComment(c.id)}
+                              className="p-1 hover:bg-rose-50 rounded text-rose-500 cursor-pointer shrink-0"
+                              title="Quitar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <input
                         type="text"
                         placeholder="Escribe un comentario…"
                         className="flex-1 px-4 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
-                        value={comment}
-                        onChange={(e) => setComment(e.target.value)}
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addComment();
+                          }
+                        }}
                       />
                       <button
                         type="button"
-                        disabled
-                        className="w-11 h-11 rounded-xl bg-slate-100 text-bento-mute opacity-60 cursor-not-allowed flex items-center justify-center"
-                        title="Próximamente"
+                        onClick={addComment}
+                        disabled={!newComment.trim()}
+                        className="w-11 h-11 rounded-xl bg-bento-ink text-white hover:bg-black disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        title="Añadir comentario"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -219,30 +329,32 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
 
                   <div>
                     <label className="text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5">
-                      <LinkIcon className="w-3.5 h-3.5" /> Enlaces
+                      <LinkIcon className="w-3.5 h-3.5" /> Enlaces {links.length > 0 && <span className="text-bento-ink">({links.length})</span>}
                     </label>
-                    {linkTitle && linkUrl && (
-                      <div className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
-                        <LinkIcon className="w-4 h-4 text-sky-600" />
-                        <a
-                          href={linkUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 text-sm font-medium text-sky-700 truncate"
-                        >
-                          {linkTitle}
-                        </a>
-                        <button type="button" className="p-1 hover:bg-white rounded text-sky-600" title="Editar">
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setLinkTitle(''); setLinkUrl(''); }}
-                          className="p-1 hover:bg-white rounded text-rose-500"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    {links.length > 0 && (
+                      <div className="mb-2 flex flex-col gap-1.5">
+                        {links.map(l => (
+                          <div key={l.id} className="bg-sky-50 border border-sky-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                            <LinkIcon className="w-4 h-4 text-sky-600 shrink-0" />
+                            <a
+                              href={l.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 text-sm font-medium text-sky-700 truncate hover:underline"
+                              title={l.url}
+                            >
+                              {l.title}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => removeLink(l.id)}
+                              className="p-1 hover:bg-white rounded text-rose-500 cursor-pointer shrink-0"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
@@ -262,9 +374,10 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                       />
                       <button
                         type="button"
-                        disabled
-                        className="w-11 h-11 rounded-xl bg-sky-100 text-sky-600 opacity-70 cursor-not-allowed flex items-center justify-center"
-                        title="Próximamente"
+                        onClick={addLink}
+                        disabled={!linkTitle.trim() || !linkUrl.trim()}
+                        className="w-11 h-11 rounded-xl bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        title="Añadir enlace"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
@@ -273,23 +386,27 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
 
                   <div>
                     <label className="text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5">
-                      <Bell className="w-3.5 h-3.5" /> Alertas por Email
+                      <Bell className="w-3.5 h-3.5" /> Alertas por Email {emailAlerts.length > 0 && <span className="text-bento-ink">({emailAlerts.length})</span>}
                     </label>
-                    {alertEmail && (
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2 flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-amber-600" />
-                        <span className="flex-1 text-sm text-amber-900">
-                          <span className="font-semibold">{STATUS_LABELS[alertStatus]}</span>
-                          <span className="opacity-70"> → {alertEmail}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setAlertEmail('')}
-                          className="p-1 hover:bg-white rounded text-rose-500"
-                          title="Quitar"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    {emailAlerts.length > 0 && (
+                      <div className="mb-2 flex flex-col gap-1.5">
+                        {emailAlerts.map(a => (
+                          <div key={a.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                            <Bell className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span className="flex-1 text-sm text-amber-900 truncate">
+                              <span className="font-semibold">{STATUS_LABELS[a.status]}</span>
+                              <span className="opacity-70"> → {a.email}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeAlert(a.id)}
+                              className="p-1 hover:bg-white rounded text-rose-500 cursor-pointer shrink-0"
+                              title="Quitar"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     )}
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
@@ -313,13 +430,20 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                           className="w-full px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
                           value={alertEmail}
                           onChange={(e) => setAlertEmail(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              addAlert();
+                            }
+                          }}
                         />
                       </div>
                       <button
                         type="button"
-                        disabled
-                        className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 opacity-70 cursor-not-allowed flex items-center justify-center"
-                        title="Próximamente"
+                        onClick={addAlert}
+                        disabled={!alertEmail.trim()}
+                        className="w-11 h-11 rounded-xl bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95"
+                        title="Añadir alerta"
                       >
                         <Plus className="w-4 h-4" />
                       </button>

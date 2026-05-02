@@ -83,7 +83,7 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
             initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 20 }}
-            className="bg-white border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+            className="bg-white border border-bento-border p-8 w-full max-w-md shadow-xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <button
               onClick={onClose}

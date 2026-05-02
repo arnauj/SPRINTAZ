@@ -9,19 +9,38 @@ export interface User {
   teams?: string[];
 }
 
-export interface Sprint {
+export interface Project {
   id: string;
   name: string;
-  team?: string;
-  startDate?: string;
-  endDate?: string;
-  isActive: boolean;
+  description?: string;
   createdBy: string;
   createdAt: any;
   updatedAt?: any;
 }
 
-export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'done';
+export interface SprintStatus {
+  id: string;
+  name: string;
+  color?: string;
+  order: number;
+  substatus?: SprintStatus[];
+}
+
+export interface Sprint {
+  id: string;
+  name: string;
+  projectId: string;
+  team?: string;
+  startDate?: string;
+  endDate?: string;
+  isActive: boolean;
+  statuses?: SprintStatus[];
+  createdBy: string;
+  createdAt: any;
+  updatedAt?: any;
+}
+
+export type TaskStatus = string;
 
 export interface TaskComment {
   id: string;

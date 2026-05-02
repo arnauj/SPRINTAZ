@@ -61,12 +61,12 @@ export default function NotificationBell({ userId }: { userId: string }) {
       <AnimatePresence>
         {showDropdown && (
           <>
-            <div className="fixed inset-0 z-[60]" onClick={() => setShowDropdown(false)} />
+            <div className="fixed inset-0 z-[1000]" onClick={() => setShowDropdown(false)} />
             <motion.div
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
-              className="fixed md:absolute left-2 right-2 md:left-auto md:right-0 top-16 md:mt-3 w-auto md:w-96 bg-white border border-bento-border shadow-xl z-[70] overflow-hidden max-h-[70vh] md:max-h-[28rem]"
+              className="fixed md:absolute left-2 right-2 md:left-auto md:right-0 top-16 md:mt-3 w-auto md:w-96 bg-white border border-bento-border shadow-xl z-[1001] overflow-hidden max-h-[70vh] md:max-h-[28rem]"
             >
               <div className="px-4 py-3 md:py-3 border-b border-bento-border flex items-center justify-between bg-slate-50 sticky top-0">
                 <span className="text-sm md:text-xs font-bold uppercase tracking-widest text-bento-ink">Notificaciones</span>

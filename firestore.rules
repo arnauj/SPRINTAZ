@@ -54,9 +54,23 @@ service cloud.firestore {
       allow delete: if isAdmin() && request.auth.uid != userId;
     }
 
+    // --- Projects ---
+    function isValidProject(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.createdBy == request.auth.uid;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidProject(request.resource.data) && request.resource.data.get('createdAt', null) != null;
+      allow update: if (isOwner(resource.data.createdBy) || isAdmin()) && isValidProject(request.resource.data) && request.resource.data.get('updatedAt', null) != null;
+      allow delete: if isOwner(resource.data.createdBy) || isAdmin();
+    }
+
     // --- Sprints ---
     function isValidSprint(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.projectId is string && data.projectId.size() > 0
         && data.createdBy == request.auth.uid
         && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
@@ -73,7 +87,7 @@ service cloud.firestore {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 200
         && data.sprintId is string
         && data.weight is number && data.weight >= 0
-        && data.status in ['backlog', 'todo', 'in_progress', 'done']
+        && data.status is string && data.status.size() > 0
         && (data.status != 'in_progress' || data.get('assignedTo', null) != null)
         && (data.status != 'done' || data.get('finishedBy', null) != null)
         && data.createdBy == (resource == null ? request.auth.uid : resource.data.createdBy);

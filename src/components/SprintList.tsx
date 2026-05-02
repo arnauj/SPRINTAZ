@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Sprint, User, Project } from '../types';
+import { Sprint, SprintStatus, User, Project } from '../types';
 import { auth } from '../lib/firebase';
 import {
   Plus,
@@ -11,6 +11,8 @@ import {
   Layers,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import SprintStatusEditor from './SprintStatusEditor';
+import { defaultSprintStatuses } from '../lib/sprintStatuses';
 
 interface SprintListProps {
   project: Project;
@@ -31,9 +33,11 @@ export default function SprintList({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
   const [newSprintTeam, setNewSprintTeam] = useState('');
+  const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editName, setEditName] = useState('');
   const [editTeam, setEditTeam] = useState('');
+  const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
 
   const userTeams = useMemo(
     () =>
@@ -68,23 +72,52 @@ export default function SprintList({
   const handleOpenCreate = () => {
     setNewSprintName('');
     setNewSprintTeam(userTeams[0] || '');
+    setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(true);
+  };
+
+  const sanitizeStatuses = (statuses: SprintStatus[]): SprintStatus[] => {
+    return statuses
+      .filter(s => s.name && s.name.trim().length > 0)
+      .map((s, i) => ({
+        id: s.id,
+        name: s.name.trim(),
+        color: s.color || 'slate',
+        order: i,
+        ...(s.substatus && s.substatus.length > 0
+          ? {
+              substatus: s.substatus
+                .filter(sub => sub.name && sub.name.trim().length > 0)
+                .map((sub, j) => ({
+                  id: sub.id,
+                  name: sub.name.trim(),
+                  color: sub.color || s.color || 'slate',
+                  order: j,
+                })),
+            }
+          : {}),
+      }));
   };
 
   const handleCreateSprint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSprintName.trim() || !newSprintTeam.trim()) return;
 
+    const statuses = sanitizeStatuses(newSprintStatuses);
+    if (statuses.length === 0) return;
+
     await firebaseService.createSprint({
       name: newSprintName.trim(),
       team: newSprintTeam.trim(),
       projectId: project.id,
       isActive: true,
+      statuses,
       createdBy: auth.currentUser?.uid || '',
     });
 
     setNewSprintName('');
     setNewSprintTeam('');
+    setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(false);
   };
 
@@ -92,21 +125,31 @@ export default function SprintList({
     setEditingSprint(sprint);
     setEditName(sprint.name);
     setEditTeam(sprint.team || '');
+    setEditStatuses(
+      sprint.statuses && sprint.statuses.length > 0
+        ? sprint.statuses
+        : defaultSprintStatuses()
+    );
   };
 
   const cancelEditSprint = () => {
     setEditingSprint(null);
     setEditName('');
     setEditTeam('');
+    setEditStatuses(defaultSprintStatuses());
   };
 
   const handleSaveEditSprint = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSprint || !editName.trim() || !editTeam.trim()) return;
 
+    const statuses = sanitizeStatuses(editStatuses);
+    if (statuses.length === 0) return;
+
     await firebaseService.updateSprint(editingSprint.id, {
       name: editName.trim(),
       team: editTeam.trim(),
+      statuses,
     });
 
     cancelEditSprint();
@@ -257,7 +300,7 @@ export default function SprintList({
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-md shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">
                 Nuevo Sprint
@@ -301,6 +344,10 @@ export default function SprintList({
                     Solo los miembros de este equipo verán el sprint.
                   </p>
                 </div>
+                <SprintStatusEditor
+                  value={newSprintStatuses}
+                  onChange={setNewSprintStatuses}
+                />
                 <div className="flex gap-3 pt-3 border-t border-bento-border">
                   <button
                     type="button"
@@ -329,7 +376,7 @@ export default function SprintList({
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-md shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">
                 Editar Sprint
@@ -367,6 +414,10 @@ export default function SprintList({
                     ))}
                   </datalist>
                 </div>
+                <SprintStatusEditor
+                  value={editStatuses}
+                  onChange={setEditStatuses}
+                />
                 <div className="flex gap-3 pt-3 border-t border-bento-border">
                   <button
                     type="button"

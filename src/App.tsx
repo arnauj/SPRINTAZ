@@ -161,8 +161,8 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
-      <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-1 md:gap-2">
-        <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+      <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={() => {
               setActiveSprint(null);
@@ -175,42 +175,26 @@ export default function App() {
           >
             Z
           </button>
-          <div className="min-w-0 leading-tight flex items-center gap-1.5 md:gap-2 flex-wrap">
-            <h1 className="text-base font-bold tracking-tight">SPRINTAZ</h1>
-            {activeProject && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-bento-mute shrink-0" />
-                <button
-                  onClick={() => {
-                    setActiveSprint(null);
-                    setActiveProject(null);
-                    didAutoSelectProject.current = true;
-                  }}
-                  className="flex items-center gap-1 text-xs md:text-sm font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer min-w-0"
-                  title="Cambiar de proyecto"
-                >
-                  <FolderOpen className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate max-w-[8rem] md:max-w-[14rem]">{activeProject.name}</span>
-                </button>
-              </>
-            )}
-            {activeProject && activeSprint && (
-              <>
-                <ChevronRight className="w-3.5 h-3.5 text-bento-mute shrink-0" />
-                <button
-                  onClick={() => setActiveSprint(null)}
-                  className="flex items-center gap-1 text-xs md:text-sm font-bold text-bento-ink hover:text-amber-700 hover:bg-amber-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer min-w-0"
-                  title="Ver todos los sprints"
-                >
-                  <Layers className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate max-w-[7rem] md:max-w-[12rem]">{activeSprint.name}</span>
-                </button>
-              </>
-            )}
-            {!activeProject && (
-              <span className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:inline">· CIFP Zonzamas</span>
-            )}
-          </div>
+          <h1 className="text-base font-bold tracking-tight shrink-0 hidden sm:block">SPRINTAZ</h1>
+          {activeProject ? (
+            <div className="flex items-center gap-1.5 min-w-0 flex-nowrap">
+              <ChevronRight className="w-4 h-4 text-bento-mute shrink-0 hidden sm:block" />
+              <button
+                onClick={() => {
+                  setActiveSprint(null);
+                  setActiveProject(null);
+                  didAutoSelectProject.current = true;
+                }}
+                className="flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50 px-2 py-1 rounded transition-colors cursor-pointer min-w-0"
+                title="Cambiar de proyecto"
+              >
+                <FolderOpen className="w-4 h-4 shrink-0" />
+                <span className="truncate">{activeProject.name}</span>
+              </button>
+            </div>
+          ) : (
+            <span className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:inline">· CIFP Zonzamas</span>
+          )}
         </div>
 
         <div className="flex items-center gap-1 md:gap-4 shrink-0">

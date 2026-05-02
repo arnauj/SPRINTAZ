@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus, SprintStatus } from '../types';
-import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
+import { flattenStatuses, colorForStatus, defaultSprintStatuses } from '../lib/sprintStatuses';
 
 interface KanbanBoardProps {
   sprint: Sprint;
@@ -17,13 +18,16 @@ interface ColumnConfig extends SprintStatus {
   tintSoft: string;
   ink: string;
   countDot: string;
+  parentId?: string;
+  parentName?: string;
 }
 
-const STATUS_COLORS: Record<string, { tint: string; tintSoft: string; ink: string; countDot: string }> = {
-  'backlog': { tint: 'var(--color-col-backlog)', tintSoft: 'var(--color-col-backlog-soft)', ink: '#a64a52', countDot: '#E58997' },
-  'todo': { tint: 'var(--color-col-todo)', tintSoft: 'var(--color-col-todo-soft)', ink: '#8a6a18', countDot: '#E5C36A' },
-  'in_progress': { tint: 'var(--color-col-doing)', tintSoft: 'var(--color-col-doing-soft)', ink: '#3a4292', countDot: '#7E89D8' },
-  'done': { tint: 'var(--color-col-done)', tintSoft: 'var(--color-col-done-soft)', ink: '#2f6f4d', countDot: '#62B58A' },
+// Legacy palette for the four built-in statuses (matches the original look).
+const LEGACY_STATUS_COLORS: Record<string, { tint: string; tintSoft: string; ink: string; countDot: string }> = {
+  'backlog':     { tint: 'var(--color-col-backlog)',  tintSoft: 'var(--color-col-backlog-soft)',  ink: '#a64a52', countDot: '#E58997' },
+  'todo':        { tint: 'var(--color-col-todo)',     tintSoft: 'var(--color-col-todo-soft)',     ink: '#8a6a18', countDot: '#E5C36A' },
+  'in_progress': { tint: 'var(--color-col-doing)',    tintSoft: 'var(--color-col-doing-soft)',    ink: '#3a4292', countDot: '#7E89D8' },
+  'done':        { tint: 'var(--color-col-done)',     tintSoft: 'var(--color-col-done-soft)',     ink: '#2f6f4d', countDot: '#62B58A' },
 };
 
 const NOTE_COLORS = ['#A8E6C9', '#FBE89D', '#F7CD7A', '#FBB380', '#F7B6BC', '#F08585', '#2F4FCF'];
@@ -54,19 +58,32 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
-  const columns = useMemo(() => {
-    const statuses = sprint.statuses || [
-      { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
-      { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
-      { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
-      { id: 'done', name: 'Done', color: 'emerald', order: 3 }
-    ];
-    return statuses
-      .sort((a, b) => a.order - b.order)
-      .map(status => ({
-        ...status,
-        ...(STATUS_COLORS[status.id] || { tint: '#f0f0f0', tintSoft: '#fafafa', ink: '#333', countDot: '#999' })
-      })) as ColumnConfig[];
+  const columns = useMemo<ColumnConfig[]>(() => {
+    const statuses = sprint.statuses && sprint.statuses.length > 0
+      ? sprint.statuses
+      : defaultSprintStatuses();
+
+    const parentNameById = new Map<string, string>();
+    statuses.forEach(p => parentNameById.set(p.id, p.name));
+
+    const flat = flattenStatuses(statuses);
+
+    return flat.map(status => {
+      const legacy = LEGACY_STATUS_COLORS[status.id];
+      const palette = colorForStatus(status.color);
+      return {
+        id: status.id,
+        name: status.name,
+        color: status.color,
+        order: status.order,
+        parentId: status.parentId,
+        parentName: status.parentId ? parentNameById.get(status.parentId) : undefined,
+        tint: legacy?.tint ?? palette.tint,
+        tintSoft: legacy?.tintSoft ?? palette.tintSoft,
+        ink: legacy?.ink ?? palette.ink,
+        countDot: legacy?.countDot ?? palette.countDot,
+      };
+    });
   }, [sprint.statuses]);
 
   useEffect(() => {
@@ -214,7 +231,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         <div className="justify-self-end flex items-center gap-2">
           <button
             onClick={() => {
-              setPendingStatus('todo');
+              setPendingStatus(columns[0]?.id || 'todo');
               setShowCreateModal(true);
             }}
             className="bg-bento-ink hover:bg-black text-white px-3 md:px-4 py-2 text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
@@ -228,21 +245,42 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         </div>
       </header>
 
-      <div className={`flex-1 flex md:grid gap-3 md:gap-4 h-full min-h-0 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-2 md:pb-0`} style={{ gridTemplateColumns: `repeat(${Math.min(columns.length, 4)}, minmax(0, 1fr))` }}>
+      <div
+        className="flex-1 flex md:grid gap-3 md:gap-4 h-full min-h-0 overflow-x-auto snap-x snap-mandatory md:snap-none pb-2 md:pb-0"
+        style={{
+          gridTemplateColumns:
+            columns.length <= 4
+              ? `repeat(${columns.length}, minmax(0, 1fr))`
+              : `repeat(${columns.length}, minmax(220px, 1fr))`,
+        }}
+      >
         {columns.map((column) => {
           const count = getTasksByStatus(column.id).length;
+          const isSub = !!column.parentId;
           return (
             <div
               key={column.id}
-              className="flex flex-col min-h-0 overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center"
-              style={{ backgroundColor: column.tintSoft }}
+              className={`flex flex-col min-h-0 overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center ${isSub ? 'md:border-l-2' : ''}`}
+              style={{
+                backgroundColor: column.tintSoft,
+                ...(isSub ? { borderLeftColor: column.countDot } : {}),
+              }}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
               <div
-                className="relative px-5 py-3 flex items-center justify-center"
+                className="relative px-4 md:px-5 py-3 flex flex-col items-center justify-center gap-0.5"
                 style={{ backgroundColor: column.tint }}
               >
+                {isSub && column.parentName && (
+                  <div
+                    className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-widest opacity-70"
+                    style={{ color: column.ink }}
+                  >
+                    <CornerDownRight className="w-2.5 h-2.5" />
+                    <span className="truncate max-w-[10rem]">{column.parentName}</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   <h3
                     className="text-sm font-bold tracking-tight"
@@ -264,7 +302,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-white/40 transition-colors cursor-pointer"
                   style={{ color: column.ink }}
-                  aria-label={`Añadir a ${column.label}`}
+                  aria-label={`Añadir a ${column.name}`}
                 >
                   <Plus className="w-4 h-4" />
                 </button>

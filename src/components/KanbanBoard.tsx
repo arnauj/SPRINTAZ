@@ -1,7 +1,7 @@
 import { useState, useEffect, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus } from '../types';
-import { Plus, MoreHorizontal, CheckCircle2, Clock, Inbox, PlayCircle, Trash2, Pencil } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 
@@ -9,73 +9,76 @@ interface KanbanBoardProps {
   sprint: Sprint;
   currentUser: User;
   users: User[];
+  onBack?: () => void;
 }
 
 interface ColumnConfig {
   id: TaskStatus;
   label: string;
-  icon: any;
-  bgClass: string;
-  borderClass: string;
-  headerBg: string;
-  headerText: string;
-  cardBg: string;
-  cardBorder: string;
-  accentText: string;
+  tint: string;
+  tintSoft: string;
+  ink: string;
+  countDot: string;
 }
 
 const COLUMNS: ColumnConfig[] = [
   {
     id: 'backlog',
     label: 'Backlog',
-    icon: Inbox,
-    bgClass: 'bg-slate-500/[0.06]',
-    borderClass: 'border-slate-500/20',
-    headerBg: 'bg-slate-500/15',
-    headerText: 'text-slate-300',
-    cardBg: 'bg-slate-800/40',
-    cardBorder: 'border-slate-600/30',
-    accentText: 'text-slate-400',
+    tint: 'var(--color-col-backlog)',
+    tintSoft: 'var(--color-col-backlog-soft)',
+    ink: '#a64a52',
+    countDot: '#E58997',
   },
   {
     id: 'todo',
-    label: 'To do',
-    icon: Clock,
-    bgClass: 'bg-amber-500/[0.08]',
-    borderClass: 'border-amber-500/25',
-    headerBg: 'bg-amber-500/20',
-    headerText: 'text-amber-200',
-    cardBg: 'bg-amber-500/10',
-    cardBorder: 'border-amber-500/20',
-    accentText: 'text-amber-300',
+    label: 'Aprobadas',
+    tint: 'var(--color-col-todo)',
+    tintSoft: 'var(--color-col-todo-soft)',
+    ink: '#8a6a18',
+    countDot: '#E5C36A',
   },
   {
     id: 'in_progress',
-    label: 'In progress',
-    icon: PlayCircle,
-    bgClass: 'bg-indigo-500/[0.08]',
-    borderClass: 'border-indigo-500/25',
-    headerBg: 'bg-indigo-500/20',
-    headerText: 'text-indigo-200',
-    cardBg: 'bg-indigo-500/10',
-    cardBorder: 'border-indigo-500/30',
-    accentText: 'text-indigo-300',
+    label: 'Doing',
+    tint: 'var(--color-col-doing)',
+    tintSoft: 'var(--color-col-doing-soft)',
+    ink: '#3a4292',
+    countDot: '#7E89D8',
   },
   {
     id: 'done',
-    label: 'Done',
-    icon: CheckCircle2,
-    bgClass: 'bg-emerald-500/[0.06]',
-    borderClass: 'border-emerald-500/20',
-    headerBg: 'bg-emerald-500/20',
-    headerText: 'text-emerald-200',
-    cardBg: 'bg-emerald-500/[0.07]',
-    cardBorder: 'border-emerald-500/20',
-    accentText: 'text-emerald-300',
+    label: 'Desplegado',
+    tint: 'var(--color-col-done)',
+    tintSoft: 'var(--color-col-done-soft)',
+    ink: '#2f6f4d',
+    countDot: '#62B58A',
   },
 ];
 
-export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardProps) {
+const NOTE_COLORS = ['#A8E6C9', '#FBE89D', '#F7CD7A', '#FBB380', '#F7B6BC', '#F08585', '#2F4FCF'];
+
+function formatRange(start?: string, end?: string) {
+  if (!start && !end) return '';
+  const fmt = (s?: string) => {
+    if (!s) return '';
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s;
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  };
+  return `${fmt(start)} - ${fmt(end)}`.trim();
+}
+
+function daysUntil(end?: string): number | null {
+  if (!end) return null;
+  const d = new Date(end);
+  if (isNaN(d.getTime())) return null;
+  const now = new Date();
+  const diff = Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
+}
+
+export default function KanbanBoard({ sprint, currentUser, users, onBack }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
@@ -102,7 +105,6 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
 
     await firebaseService.updateTask(task.id, updates);
 
-    // Notify all team members (excluding the actor)
     const recipients = new Set<string>();
     if (sprint.team) {
       users.forEach(u => {
@@ -153,50 +155,106 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
 
   const getTasksByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
 
+  const remaining = daysUntil(sprint.endDate);
+  const range = formatRange(sprint.startDate, sprint.endDate);
+
   return (
     <div className="h-full flex flex-col">
-      <header className="flex items-center justify-between mb-4 md:mb-8 px-2 gap-2">
-        <div className="min-w-0">
-          <h3 className="text-lg md:text-2xl font-bold tracking-tight truncate">Tablero Kanban</h3>
-          <p className="text-xs md:text-sm text-slate-500 hidden sm:block">Gestión de tareas en tiempo real.</p>
+      <header className="grid grid-cols-3 items-center mb-6 px-2 gap-2">
+        <div className="justify-self-start">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 text-sm font-medium text-bento-ink/70 hover:text-bento-ink transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Mis Proyectos</span>
+            </button>
+          )}
         </div>
-        <button
-          onClick={() => {
-            setPendingStatus('todo');
-            setShowCreateModal(true);
-          }}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 md:px-5 py-2 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 cursor-pointer shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Nueva Tarea</span>
-          <span className="sm:hidden">Nueva</span>
-        </button>
+
+        <div className="justify-self-center text-center">
+          <h2 className="text-base md:text-xl font-bold text-bento-ink flex items-center gap-2 justify-center">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+            Proyecto: <span>{sprint.name}</span>
+          </h2>
+          {(range || remaining !== null) && (
+            <div className="mt-1 flex items-center gap-2 justify-center text-xs text-bento-mute">
+              {range && <span className="font-medium">{range}</span>}
+              {remaining !== null && remaining >= 0 && (
+                <span className="px-2 py-0.5 rounded-md bg-emerald-200/70 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                  Faltan {remaining} días
+                </span>
+              )}
+              {remaining !== null && remaining < 0 && (
+                <span className="px-2 py-0.5 rounded-md bg-rose-200/70 text-rose-800 text-[10px] font-bold uppercase tracking-wider">
+                  Vencido
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="justify-self-end flex items-center gap-2">
+          <button
+            onClick={() => {
+              setPendingStatus('todo');
+              setShowCreateModal(true);
+            }}
+            className="bg-bento-ink hover:bg-black text-white px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Nueva</span>
+          </button>
+          <span className="text-xs md:text-sm font-semibold text-bento-ink/70 px-3 py-2 rounded-xl bg-white/70 border border-bento-border">
+            {tasks.length} Tareas
+          </span>
+        </div>
       </header>
 
       <div className="flex-1 flex md:grid md:grid-cols-4 gap-3 md:gap-4 h-full min-h-0 overflow-x-auto md:overflow-x-visible snap-x snap-mandatory md:snap-none pb-2 md:pb-0">
         {COLUMNS.map((column) => {
-          const Icon = column.icon;
           const count = getTasksByStatus(column.id).length;
           return (
             <div
               key={column.id}
-              className={`flex flex-col min-h-0 rounded-2xl border-2 ${column.borderClass} ${column.bgClass} backdrop-blur-sm overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center`}
+              className="flex flex-col min-h-0 rounded-3xl overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center"
+              style={{ backgroundColor: column.tintSoft }}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, column.id)}
             >
-              <div className={`${column.headerBg} px-4 py-3 border-b-2 ${column.borderClass} flex items-center justify-between`}>
+              <div
+                className="relative px-5 py-3 flex items-center justify-center"
+                style={{ backgroundColor: column.tint }}
+              >
                 <div className="flex items-center gap-2">
-                  <Icon className={`w-4 h-4 ${column.headerText}`} />
-                  <h3 className={`text-xs font-bold uppercase tracking-wider ${column.headerText}`}>
+                  <h3
+                    className="text-sm font-bold tracking-tight"
+                    style={{ color: column.ink }}
+                  >
                     {column.label}
                   </h3>
+                  <span
+                    className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white"
+                    style={{ backgroundColor: column.countDot }}
+                  >
+                    {count}
+                  </span>
                 </div>
-                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-black/20 ${column.headerText}`}>
-                  {count}
-                </span>
+                <button
+                  onClick={() => {
+                    setPendingStatus(column.id);
+                    setShowCreateModal(true);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-white/40 transition-colors cursor-pointer"
+                  style={{ color: column.ink }}
+                  aria-label={`Añadir a ${column.label}`}
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="flex-1 flex flex-col gap-2 p-3 overflow-y-auto custom-scrollbar">
+              <div className="flex-1 flex flex-col gap-4 p-4 overflow-y-auto custom-scrollbar">
                 <AnimatePresence initial={false}>
                   {getTasksByStatus(column.id).map((task) => (
                     <TaskCard
@@ -213,19 +271,10 @@ export default function KanbanBoard({ sprint, currentUser, users }: KanbanBoardP
                   ))}
                 </AnimatePresence>
                 {count === 0 && (
-                  <div className={`text-center py-8 text-xs italic ${column.accentText} opacity-50`}>
+                  <div className="text-center py-10 text-xs italic text-bento-ink/30">
                     Sin tareas
                   </div>
                 )}
-              </div>
-
-              <div className={`px-4 py-2 border-t-2 ${column.borderClass} bg-black/10 flex justify-between items-center`}>
-                <span className={`text-[10px] font-bold uppercase tracking-wider ${column.headerText} opacity-70`}>
-                  Total tareas
-                </span>
-                <span className={`text-sm font-mono font-bold ${column.headerText}`}>
-                  {count}
-                </span>
               </div>
             </div>
           );
@@ -259,13 +308,35 @@ interface TaskCardProps {
   onEdit: () => void;
 }
 
+function noteTextColor(bg: string): string {
+  // Simple luminance check
+  const hex = bg.replace('#', '');
+  if (hex.length !== 6) return '#1F2937';
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.6 ? '#1F2937' : '#FFFFFF';
+}
+
 function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
 
-  const isDoing = task.status === 'in_progress';
   const isDone = task.status === 'done';
+
+  // Use task color if set, otherwise pick a deterministic pastel based on task id
+  const noteColor = task.color || NOTE_COLORS[task.id ? task.id.charCodeAt(0) % NOTE_COLORS.length : 0];
+  const ink = noteTextColor(noteColor);
+  const isDark = ink === '#FFFFFF';
+
+  const dateStr = task.createdAt?.toDate
+    ? (() => {
+        const d = task.createdAt.toDate();
+        return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+      })()
+    : '';
 
   return (
     <motion.div
@@ -275,24 +346,32 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -3 }}
       style={{
+        backgroundColor: noteColor,
+        color: ink,
         zIndex: showOptions ? 50 : 'auto',
-        borderColor: task.color || undefined,
-        backgroundColor: task.color ? `${task.color}15` : undefined,
-        boxShadow: task.color ? `0 4px 12px ${task.color}20` : undefined,
       }}
-      className={`p-3 rounded-xl border-2 transition-all group relative cursor-move shadow-sm hover:shadow-md ${column.cardBg} ${task.color ? '' : column.cardBorder} hover:border-opacity-60`}
+      className="sticky-note cursor-move group p-4 pt-5"
     >
-      <div className="flex justify-between items-start mb-2 gap-2">
-        <h5 className={`font-semibold text-sm leading-snug text-slate-100 ${isDone ? 'line-through opacity-60' : ''}`}>
-          {task.name}
-        </h5>
+      <span className="note-tape" />
 
-        <div className="relative shrink-0">
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border"
+          style={{
+            backgroundColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.7)',
+            borderColor: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.08)',
+          }}
+          title={`Prioridad ${task.weight}`}
+        >
+          {task.weight}
+        </div>
+        <div className="flex items-center gap-1">
           <button
             onClick={() => setShowOptions(!showOptions)}
-            className="p-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 hover:bg-white/10 rounded text-slate-300 transition-all cursor-pointer"
+            className="p-1 rounded transition-all cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            style={{ color: ink }}
             aria-label="Opciones de tarea"
           >
             <MoreHorizontal className="w-4 h-4" />
@@ -306,7 +385,8 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-0 top-8 w-36 bg-bento-card border-2 border-bento-border rounded-xl shadow-2xl z-20 overflow-hidden"
+                  className="absolute right-3 top-10 w-40 bg-white border border-bento-border rounded-xl shadow-xl z-20 overflow-hidden"
+                  style={{ color: '#1F2937' }}
                 >
                   {canModify && (
                     <button
@@ -314,7 +394,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                         onEdit();
                         setShowOptions(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-300 hover:text-white hover:bg-slate-800 border-b border-bento-border cursor-pointer flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border-b border-bento-border cursor-pointer flex items-center gap-2"
                     >
                       <Pencil className="w-3 h-3" />
                       Editar
@@ -327,7 +407,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                         onStatusChange(col.id);
                         setShowOptions(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-slate-400 hover:text-white hover:bg-slate-800 border-b border-bento-border cursor-pointer"
+                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 border-b border-bento-border cursor-pointer"
                     >
                       → {col.label}
                     </button>
@@ -338,7 +418,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                         onDelete();
                         setShowOptions(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-[10px] uppercase font-bold tracking-widest text-red-400 hover:text-white hover:bg-red-600/80 cursor-pointer flex items-center gap-2"
+                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer flex items-center gap-2"
                     >
                       <Trash2 className="w-3 h-3" />
                       Eliminar
@@ -351,40 +431,54 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
         </div>
       </div>
 
+      <h5
+        className={`font-bold text-sm leading-snug pr-1 ${isDone ? 'line-through opacity-70' : ''}`}
+        style={{ color: ink }}
+      >
+        {task.name}
+      </h5>
+
       {task.description && (
-        <p className="text-xs text-slate-300/70 mb-2 line-clamp-2 leading-relaxed">
+        <p
+          className="text-[11px] mt-1.5 line-clamp-2 leading-relaxed"
+          style={{ color: ink, opacity: 0.75 }}
+        >
           {task.description}
         </p>
       )}
 
-      <div className={`mt-3 pt-2 border-t-2 ${column.cardBorder} flex items-center justify-between gap-2`}>
-        {isDoing && assignedUser ? (
-          <>
-            <span className={`text-[9px] uppercase font-bold tracking-wide ${column.accentText}`}>
-              Hace: {assignedUser.name}
-            </span>
-            <div className="h-5 w-5 rounded-full bg-indigo-500 text-white flex items-center justify-center text-[8px] font-bold shadow-sm">
+      <div
+        className="mt-3 pt-2 flex items-center justify-between gap-2 border-t"
+        style={{
+          borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
+        }}
+      >
+        <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: ink, opacity: 0.85 }}>
+          <Calendar className="w-3 h-3" />
+          {dateStr || `${task.weight} pts`}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {assignedUser && (
+            <div
+              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm"
+              style={{ backgroundColor: column.countDot }}
+              title={`Asignada: ${assignedUser.name}`}
+            >
               {assignedUser.name[0]}
             </div>
-          </>
-        ) : isDone && finishedByUser ? (
-          <>
-            <span className={`text-[9px] uppercase font-bold tracking-wide ${column.accentText}`}>
-              Hecho por: {finishedByUser.name}
-            </span>
-            <div className="h-5 w-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[8px] font-bold shadow-sm">
+          )}
+          {finishedByUser && !assignedUser && (
+            <div
+              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm bg-emerald-500"
+              title={`Hecho por: ${finishedByUser.name}`}
+            >
               {finishedByUser.name[0]}
             </div>
-          </>
-        ) : (
-          <>
-            <span className={`text-[10px] font-mono uppercase tracking-tight ${column.accentText} opacity-80`}>
-              {task.weight} PTS
-            </span>
-            <div className={`h-1.5 w-1.5 rounded-full ${column.accentText} opacity-50`}></div>
-          </>
-        )}
+          )}
+        </div>
       </div>
     </motion.div>
   );
 }
+

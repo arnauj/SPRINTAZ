@@ -78,35 +78,35 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="bg-bento-card border-2 border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+            exit={{ scale: 0.96, opacity: 0, y: 20 }}
+            className="bg-white border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 p-2 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              className="absolute top-5 right-5 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
               aria-label="Cerrar"
             >
-              <X className="w-5 h-5 text-slate-500" />
+              <X className="w-5 h-5 text-bento-mute" />
             </button>
 
-            <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Editar Perfil</h3>
-            <p className="text-sm text-slate-500 mb-6">Actualiza tu nombre y foto de perfil.</p>
+            <h3 className="text-xl font-bold tracking-tight mb-1 text-bento-ink">Editar Perfil</h3>
+            <p className="text-sm text-bento-mute mb-6">Actualiza tu nombre y foto de perfil.</p>
 
             <div className="flex justify-center mb-6">
               {photoURL ? (
                 <img
                   src={photoURL}
                   alt="Vista previa"
-                  className="w-24 h-24 rounded-full border-2 border-indigo-500/40 ring-2 ring-indigo-500/10 object-cover"
+                  className="w-24 h-24 rounded-full border-2 border-amber-300 object-cover"
                   referrerPolicy="no-referrer"
                   onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
                 />
               ) : (
-                <div className="w-24 h-24 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-2xl border-2 border-indigo-500/40">
+                <div className="w-24 h-24 rounded-full bg-amber-400 text-bento-ink flex items-center justify-center font-bold text-2xl border-2 border-amber-300">
                   {(name || user.name || '?')[0]}
                 </div>
               )}
@@ -114,16 +114,16 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Nombre
                 </label>
                 <div className="relative">
-                  <UserIcon className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <UserIcon className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Tu nombre"
                     required
-                    className="w-full pl-11 pr-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-200"
+                    className="w-full pl-11 pr-5 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                   />
@@ -131,7 +131,7 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Foto de perfil
                 </label>
                 <div className="flex gap-2">
@@ -139,7 +139,7 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="flex-1 px-4 py-3 bg-slate-800 border-2 border-slate-700 hover:border-indigo-600 hover:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-300 text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="flex-1 px-4 py-3 bg-white border-2 border-bento-border hover:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                   >
                     <Upload className="w-4 h-4" />
                     {uploading ? 'Subiendo...' : 'Subir imagen'}
@@ -156,49 +156,49 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   O pega URL de foto
                 </label>
                 <div className="relative">
-                  <ImageIcon className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                  <ImageIcon className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
                     type="url"
                     placeholder="https://..."
-                    className="w-full pl-11 pr-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-300 text-sm"
+                    className="w-full pl-11 pr-5 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink text-sm"
                     value={photoURL}
                     onChange={(e) => setPhotoURL(e.target.value)}
                   />
                 </div>
-                <p className="text-[10px] text-slate-600 italic mt-1.5 ml-1">Enlace público a una imagen.</p>
+                <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">Enlace público a una imagen.</p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Email
                 </label>
-                <div className="w-full px-5 py-3 bg-slate-900 border-2 border-slate-800 text-slate-500 rounded-2xl text-sm font-mono">
+                <div className="w-full px-4 py-3 bg-slate-50 border border-bento-border text-bento-mute rounded-xl text-sm font-mono">
                   {user.email}
                 </div>
               </div>
 
               {error && (
-                <p className="text-xs text-red-400 bg-red-500/10 border-2 border-red-500/30 rounded-xl px-4 py-2">
+                <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2">
                   {error}
                 </p>
               )}
 
-              <div className="flex gap-4 pt-4 border-t-2 border-slate-800/50">
+              <div className="flex gap-3 pt-4 border-t border-bento-border">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 text-sm font-semibold text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-3 bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex-1 py-3 bg-bento-ink text-white text-sm font-bold rounded-xl shadow-md hover:bg-black active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? 'Guardando...' : 'Guardar'}
                 </button>

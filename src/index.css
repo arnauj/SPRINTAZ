@@ -1,19 +1,54 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Caveat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  --color-bento-bg: #0F1115;
-  --color-bento-card: #1A1D24;
-  --color-bento-card-hover: #242933;
-  --color-bento-border: #1e293b; /* slate-800 */
+  --font-hand: "Caveat", "Inter", cursive;
+
+  /* Soft pastel surfaces */
+  --color-bento-bg: #F4F1EB;
+  --color-bento-card: #FFFFFF;
+  --color-bento-card-hover: #FBFAF6;
+  --color-bento-border: #E7E2D7;
+  --color-bento-ink: #2F2A24;
+  --color-bento-mute: #8A8270;
+
+  /* Pastel column tints */
+  --color-col-backlog: #FBD9DB;
+  --color-col-backlog-soft: #FDEDEE;
+  --color-col-todo: #FBE7A0;
+  --color-col-todo-soft: #FEF5D2;
+  --color-col-doing: #DAE0FB;
+  --color-col-doing-soft: #ECEFFD;
+  --color-col-done: #BFE9CF;
+  --color-col-done-soft: #E0F4E8;
+
+  /* Pastel sticky-note tints */
+  --color-note-green: #A8E6C9;
+  --color-note-yellow: #FBE89D;
+  --color-note-amber: #F7CD7A;
+  --color-note-orange: #FBB380;
+  --color-note-pink: #F7B6BC;
+  --color-note-red: #F08585;
+  --color-note-blue: #2F4FCF;
 }
 
 @layer base {
   body {
-    @apply antialiased text-slate-200 bg-bento-bg;
+    @apply antialiased bg-bento-bg;
+    color: var(--color-bento-ink);
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(247, 205, 122, 0.10), transparent 40%),
+      radial-gradient(circle at 80% 10%, rgba(218, 224, 251, 0.18), transparent 45%),
+      radial-gradient(circle at 50% 100%, rgba(191, 233, 207, 0.15), transparent 50%);
+    background-attachment: fixed;
   }
+}
+
+.font-hand {
+  font-family: var(--font-hand);
+  letter-spacing: 0.01em;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -25,10 +60,42 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #d6cfbe;
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #b8af9b;
+}
+
+/* Sticky-note tape decoration */
+.note-tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-2deg);
+  width: 70px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  border-left: 1px dashed rgba(0, 0, 0, 0.06);
+  border-right: 1px dashed rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+.sticky-note {
+  position: relative;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.04),
+    0 6px 16px rgba(60, 50, 30, 0.08);
+}
+
+.sticky-note::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.35), rgba(255,255,255,0) 40%);
 }

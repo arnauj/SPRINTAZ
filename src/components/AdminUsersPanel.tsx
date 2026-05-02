@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { User, UserRole } from '../types';
-import { X, Shield, Trash2, Pencil, Search, Save, Ban, ImageIcon, User as UserIcon, Upload } from 'lucide-react';
+import { X, Shield, Trash2, Pencil, Search, ImageIcon, User as UserIcon, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -10,10 +10,10 @@ const ROLE_LABELS: Record<UserRole, string> = {
   Collaborator: 'Colaborador',
 };
 
-const ROLE_COLORS: Record<UserRole, { bg: string; text: string; border: string }> = {
-  Admin: { bg: 'bg-red-500', text: 'text-red-400', border: 'border-red-500/40' },
-  Teacher: { bg: 'bg-orange-500', text: 'text-orange-400', border: 'border-orange-500/40' },
-  Collaborator: { bg: 'bg-blue-500', text: 'text-blue-400', border: 'border-blue-500/40' },
+const ROLE_COLORS: Record<UserRole, { bg: string; chipBg: string; chipText: string; chipBorder: string }> = {
+  Admin: { bg: 'bg-rose-400', chipBg: 'bg-rose-50', chipText: 'text-rose-700', chipBorder: 'border-rose-200' },
+  Teacher: { bg: 'bg-amber-400', chipBg: 'bg-amber-50', chipText: 'text-amber-700', chipBorder: 'border-amber-200' },
+  Collaborator: { bg: 'bg-sky-400', chipBg: 'bg-sky-50', chipText: 'text-sky-700', chipBorder: 'border-sky-200' },
 };
 
 interface AdminUsersPanelProps {
@@ -138,51 +138,51 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/30 backdrop-blur-sm">
           <motion.div
             initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 20 }}
-            className="bg-bento-card border-2 border-bento-border rounded-3xl w-full max-w-3xl shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden"
+            className="bg-white border border-bento-border rounded-3xl w-full max-w-3xl shadow-xl relative flex flex-col max-h-[90vh] overflow-hidden"
           >
-            <div className="px-6 md:px-8 py-5 border-b-2 border-bento-border flex items-center justify-between gap-4 bg-slate-900/40">
+            <div className="px-6 md:px-8 py-5 border-b border-bento-border flex items-center justify-between gap-4 bg-slate-50">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 rounded-xl bg-red-500/15 border-2 border-red-500/40 flex items-center justify-center shrink-0">
-                  <Shield className="w-5 h-5 text-red-400" />
+                <div className="h-10 w-10 rounded-xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+                  <Shield className="w-5 h-5 text-rose-500" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-white truncate">Administración de Usuarios</h3>
-                  <p className="text-[10px] md:text-xs text-slate-500 uppercase tracking-widest font-bold">Solo administradores</p>
+                  <h3 className="text-lg md:text-xl font-bold tracking-tight text-bento-ink truncate">Administración de Usuarios</h3>
+                  <p className="text-[10px] md:text-xs text-bento-mute uppercase tracking-widest font-bold">Solo administradores</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-slate-800 rounded-full transition-colors cursor-pointer shrink-0"
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer shrink-0"
                 aria-label="Cerrar"
               >
-                <X className="w-5 h-5 text-slate-400" />
+                <X className="w-5 h-5 text-bento-mute" />
               </button>
             </div>
 
-            <div className="px-6 md:px-8 py-4 border-b-2 border-bento-border bg-slate-900/20">
+            <div className="px-6 md:px-8 py-4 border-b border-bento-border bg-slate-50/60">
               <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Buscar por nombre o email..."
-                  className="w-full pl-11 pr-5 py-2.5 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-200 text-sm"
+                  className="w-full pl-11 pr-5 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink text-sm"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-3">
+              <p className="text-[10px] text-bento-mute uppercase font-bold tracking-widest mt-3">
                 {filtered.length} {filtered.length === 1 ? 'usuario' : 'usuarios'}
               </p>
             </div>
 
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-6 flex flex-col gap-3">
               {filtered.length === 0 && (
-                <div className="text-center py-12 text-slate-500">
+                <div className="text-center py-12 text-bento-mute">
                   <p className="text-sm italic">Sin resultados.</p>
                 </div>
               )}
@@ -190,46 +190,46 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                 const isSelf = u.uid === currentUserId;
                 const colors = ROLE_COLORS[u.role] || ROLE_COLORS.Collaborator;
                 return (
-                  <div key={u.uid} className="rounded-2xl border-2 border-slate-700/50 bg-slate-800/30 p-4 transition-all">
+                  <div key={u.uid} className="rounded-2xl border border-bento-border bg-bento-card-hover p-4 transition-all">
                     <div className="flex items-center gap-4">
                       {u.photoURL ? (
                         <img
                           src={u.photoURL}
                           alt={u.name}
-                          className={`w-12 h-12 rounded-full border-2 ${colors.border} object-cover shrink-0`}
+                          className="w-12 h-12 rounded-full border border-bento-border object-cover shrink-0"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className={`w-12 h-12 rounded-full ${colors.bg} text-white flex items-center justify-center font-bold border-2 ${colors.border} shrink-0`}>
+                        <div className={`w-12 h-12 rounded-full ${colors.bg} text-white flex items-center justify-center font-bold shrink-0`}>
                           {u.name.substring(0, 2).toUpperCase() || '?'}
                         </div>
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-slate-100 truncate">
+                        <p className="text-sm font-bold text-bento-ink truncate">
                           {u.name}
-                          {isSelf && <span className="text-indigo-400 ml-2 text-[10px] uppercase tracking-widest">(Tú)</span>}
+                          {isSelf && <span className="text-amber-600 ml-2 text-[10px] uppercase tracking-widest">(Tú)</span>}
                         </p>
-                        <p className="text-xs text-slate-500 truncate font-mono">{u.email}</p>
+                        <p className="text-xs text-bento-mute truncate font-mono">{u.email}</p>
                       </div>
 
-                      <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg border-2 ${colors.border} ${colors.text} shrink-0`}>
+                      <span className={`text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg border ${colors.chipBorder} ${colors.chipText} ${colors.chipBg} shrink-0`}>
                         {ROLE_LABELS[u.role] || u.role}
                       </span>
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {(u.teams && u.teams.length > 0 ? u.teams : [u.name]).map(t => (
-                        <span key={t} className="text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg bg-indigo-500/10 border-2 border-indigo-500/30 text-indigo-300">
+                        <span key={t} className="text-[10px] uppercase font-bold tracking-widest px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
                           {t}
                         </span>
                       ))}
                     </div>
 
-                    <div className="mt-3 pt-3 border-t-2 border-slate-700/40 flex items-center justify-end gap-2">
+                    <div className="mt-3 pt-3 border-t border-bento-border flex items-center justify-end gap-2">
                       <button
                         onClick={() => startEdit(u)}
-                        className="px-3 py-1.5 text-[11px] uppercase font-bold tracking-widest text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                        className="px-3 py-1.5 text-[11px] uppercase font-bold tracking-widest text-bento-ink bg-white border border-bento-border hover:bg-slate-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
                       >
                         <Pencil className="w-3 h-3" />
                         Editar
@@ -237,7 +237,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                       {!isSelf && (
                         <button
                           onClick={() => handleDelete(u)}
-                          className="px-3 py-1.5 text-[11px] uppercase font-bold tracking-widest text-red-400 hover:text-white bg-red-500/10 hover:bg-red-600/80 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+                          className="px-3 py-1.5 text-[11px] uppercase font-bold tracking-widest text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
                         >
                           <Trash2 className="w-3 h-3" />
                           Eliminar
@@ -251,34 +251,34 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
 
             <AnimatePresence>
               {editingState && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
                   <motion.div
-                    initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                    initial={{ scale: 0.96, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.95, opacity: 0, y: 20 }}
-                    className="bg-bento-card border-2 border-bento-border rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar"
+                    exit={{ scale: 0.96, opacity: 0, y: 20 }}
+                    className="bg-white border border-bento-border rounded-3xl p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto custom-scrollbar relative"
                   >
                     <button
                       onClick={cancelEdit}
-                      className="absolute top-4 right-4 p-2 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+                      className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
                       aria-label="Cerrar"
                     >
-                      <X className="w-5 h-5 text-slate-400" />
+                      <X className="w-5 h-5 text-bento-mute" />
                     </button>
 
-                    <h3 className="text-xl font-bold tracking-tight mb-6 text-white pr-8">Editar usuario</h3>
+                    <h3 className="text-xl font-bold tracking-tight mb-6 text-bento-ink pr-8">Editar usuario</h3>
 
                     <div className="flex justify-center mb-6">
                       {editingState.photoURL ? (
                         <img
                           src={editingState.photoURL}
                           alt="Vista previa"
-                          className="w-20 h-20 rounded-full border-2 border-indigo-500/40 object-cover"
+                          className="w-20 h-20 rounded-full border-2 border-amber-300 object-cover"
                           referrerPolicy="no-referrer"
                           onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0.3'; }}
                         />
                       ) : (
-                        <div className="w-20 h-20 rounded-full bg-indigo-500 text-white flex items-center justify-center font-bold text-xl border-2 border-indigo-500/40">
+                        <div className="w-20 h-20 rounded-full bg-amber-400 text-bento-ink flex items-center justify-center font-bold text-xl border-2 border-amber-300">
                           {(editingState.name || '?')[0]}
                         </div>
                       )}
@@ -286,15 +286,15 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
 
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                        <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                           Nombre
                         </label>
                         <div className="relative">
-                          <UserIcon className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                          <UserIcon className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
                           <input
                             type="text"
                             placeholder="Nombre"
-                            className="w-full pl-11 pr-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-200 font-medium"
+                            className="w-full pl-11 pr-5 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink font-medium"
                             value={editingState.name}
                             onChange={(e) => setEditingState({ ...editingState, name: e.target.value })}
                           />
@@ -302,7 +302,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                        <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                           Foto de perfil
                         </label>
                         <div className="flex gap-2">
@@ -310,7 +310,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploading}
-                            className="flex-1 px-4 py-3 bg-slate-800 border-2 border-slate-700 hover:border-indigo-600 hover:bg-slate-900 rounded-xl outline-none transition-all font-medium text-slate-300 text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                            className="flex-1 px-4 py-3 bg-white border-2 border-bento-border hover:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink text-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                           >
                             <Upload className="w-4 h-4" />
                             {uploading ? 'Subiendo...' : 'Subir'}
@@ -327,15 +327,15 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                        <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                           O pega URL
                         </label>
                         <div className="relative">
-                          <ImageIcon className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                          <ImageIcon className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
                           <input
                             type="url"
                             placeholder="https://..."
-                            className="w-full pl-11 pr-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-300 text-sm"
+                            className="w-full pl-11 pr-5 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink text-sm"
                             value={editingState.photoURL}
                             onChange={(e) => setEditingState({ ...editingState, photoURL: e.target.value })}
                           />
@@ -343,40 +343,40 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                        <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                           Rol
                         </label>
                         <select
                           value={editingState.role}
                           onChange={(e) => setEditingState({ ...editingState, role: e.target.value as UserRole })}
-                          disabled={isSelfEditing}
-                          className="w-full px-4 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-300 cursor-pointer font-medium disabled:opacity-50"
+                          disabled={!!isSelfEditing}
+                          className="w-full px-4 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink cursor-pointer font-medium disabled:opacity-50"
                         >
-                          <option value="Admin" className="bg-slate-800">Administrador</option>
-                          <option value="Teacher" className="bg-slate-800">Profesor Titular</option>
-                          <option value="Collaborator" className="bg-slate-800">Colaborador</option>
+                          <option value="Admin">Administrador</option>
+                          <option value="Teacher">Profesor Titular</option>
+                          <option value="Collaborator">Colaborador</option>
                         </select>
-                        {isSelfEditing && <p className="text-[10px] text-slate-500 italic mt-1.5 ml-1">No puedes cambiar tu propio rol.</p>}
+                        {isSelfEditing && <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">No puedes cambiar tu propio rol.</p>}
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                        <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                           Equipos
                         </label>
                         <div className="flex flex-wrap gap-1.5 mb-2 min-h-[28px]">
                           {editingState.teams.length === 0 && (
-                            <span className="text-[10px] text-slate-500 italic">Sin equipos asignados.</span>
+                            <span className="text-[10px] text-bento-mute italic">Sin equipos asignados.</span>
                           )}
                           {editingState.teams.map(t => (
                             <span
                               key={t}
-                              className="text-[10px] uppercase font-bold tracking-widest pl-2 pr-1 py-1 rounded-lg bg-indigo-500/10 border-2 border-indigo-500/40 text-indigo-300 flex items-center gap-1"
+                              className="text-[10px] uppercase font-bold tracking-widest pl-2 pr-1 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 flex items-center gap-1"
                             >
                               {t}
                               <button
                                 type="button"
                                 onClick={() => removeTeam(t)}
-                                className="p-0.5 hover:bg-red-500/30 hover:text-red-300 rounded transition-colors cursor-pointer"
+                                className="p-0.5 hover:bg-rose-100 hover:text-rose-600 rounded transition-colors cursor-pointer"
                                 aria-label={`Quitar ${t}`}
                               >
                                 <X className="w-3 h-3" />
@@ -388,7 +388,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                           <input
                             type="text"
                             placeholder="Añadir equipo..."
-                            className="flex-1 px-4 py-2.5 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-xl outline-none transition-all text-slate-300 text-sm"
+                            className="flex-1 px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink text-sm"
                             value={newTeamInput}
                             onChange={(e) => setNewTeamInput(e.target.value)}
                             onKeyDown={(e) => {
@@ -402,28 +402,28 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                             type="button"
                             onClick={addTeam}
                             disabled={!newTeamInput.trim()}
-                            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="px-4 py-2.5 bg-bento-ink hover:bg-black text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             Añadir
                           </button>
                         </div>
-                        <p className="text-[10px] text-slate-500 italic mt-1.5 ml-1">
+                        <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
                           Solo el administrador puede asignar varios equipos a un usuario.
                         </p>
                       </div>
 
                       {error && (
-                        <p className="text-xs text-red-400 bg-red-500/10 border-2 border-red-500/30 rounded-xl px-4 py-2">
+                        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2">
                           {error}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex gap-4 pt-6 border-t-2 border-slate-800/50 mt-6">
+                    <div className="flex gap-3 pt-6 border-t border-bento-border mt-6">
                       <button
                         type="button"
                         onClick={cancelEdit}
-                        className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-white transition-colors cursor-pointer"
+                        className="flex-1 py-3 text-sm font-semibold text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
                       >
                         Cancelar
                       </button>
@@ -431,7 +431,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
                         type="button"
                         onClick={saveEdit}
                         disabled={savingUid === editingState.user.uid}
-                        className="flex-1 py-3 bg-indigo-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                        className="flex-1 py-3 bg-bento-ink text-white text-sm font-bold rounded-xl shadow-md hover:bg-black active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
                       >
                         {savingUid === editingState.user.uid ? 'Guardando...' : 'Guardar'}
                       </button>

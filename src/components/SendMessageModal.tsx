@@ -69,82 +69,82 @@ export default function SendMessageModal({ isOpen, onClose, currentUser, users }
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+            initial={{ scale: 0.96, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="bg-bento-card border-2 border-bento-border rounded-3xl p-8 w-full max-w-md shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
+            exit={{ scale: 0.96, opacity: 0, y: 20 }}
+            className="bg-white border border-bento-border rounded-3xl p-8 w-full max-w-md shadow-xl relative max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <button
               onClick={onClose}
-              className="absolute top-6 right-6 p-2 hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              className="absolute top-5 right-5 p-2 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
               aria-label="Cerrar"
             >
-              <X className="w-5 h-5 text-slate-500" />
+              <X className="w-5 h-5 text-bento-mute" />
             </button>
 
-            <h3 className="text-2xl font-bold tracking-tight mb-2 text-white">Enviar mensaje</h3>
-            <p className="text-sm text-slate-500 mb-6">Notifica a todos los miembros de un equipo.</p>
+            <h3 className="text-xl font-bold tracking-tight mb-1 text-bento-ink">Enviar mensaje</h3>
+            <p className="text-sm text-bento-mute mb-6">Notifica a todos los miembros de un equipo.</p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Equipo destinatario
                 </label>
                 <div className="relative">
-                  <UsersIcon className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <UsersIcon className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <select
                     value={team}
                     onChange={(e) => setTeam(e.target.value)}
                     required
-                    className="w-full pl-11 pr-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all font-medium text-slate-200 appearance-none cursor-pointer"
+                    className="w-full pl-11 pr-5 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink appearance-none cursor-pointer"
                   >
                     {availableTeams.length === 0 && <option value="">Sin equipos</option>}
                     {availableTeams.map(t => (
-                      <option key={t} value={t} className="bg-slate-800">{t}</option>
+                      <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
                 </div>
-                <p className="text-[10px] text-slate-500 italic mt-1.5 ml-1">
+                <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
                   {recipients.length} {recipients.length === 1 ? 'destinatario' : 'destinatarios'} (sin contarte)
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Mensaje
                 </label>
                 <textarea
                   required
                   rows={5}
                   placeholder="Escribe tu mensaje..."
-                  className="w-full px-5 py-3 bg-slate-800 border-2 border-slate-700 focus:border-indigo-600 focus:bg-slate-900 rounded-2xl outline-none transition-all resize-none text-sm text-slate-300"
+                  className="w-full px-4 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all resize-none text-sm text-bento-ink"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   maxLength={500}
                 />
-                <p className="text-[10px] text-slate-600 italic mt-1.5 ml-1">{message.length}/500</p>
+                <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">{message.length}/500</p>
               </div>
 
               {sentCount !== null && (
-                <p className="text-xs text-emerald-400 bg-emerald-500/10 border-2 border-emerald-500/30 rounded-xl px-4 py-2">
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
                   Mensaje enviado a {sentCount} {sentCount === 1 ? 'persona' : 'personas'}.
                 </p>
               )}
 
-              <div className="flex gap-4 pt-4 border-t-2 border-slate-800/50">
+              <div className="flex gap-3 pt-4 border-t border-bento-border">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="flex-1 py-3 text-sm font-bold text-slate-500 hover:text-white transition-colors cursor-pointer"
+                  className="flex-1 py-3 text-sm font-semibold text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || recipients.length === 0 || !message.trim()}
-                  className="flex-1 py-3 bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg shadow-indigo-500/20 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+                  className="flex-1 py-3 bg-bento-ink text-white text-sm font-bold rounded-xl shadow-md hover:bg-black active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Send className="w-4 h-4" />
                   {submitting ? 'Enviando...' : 'Enviar'}

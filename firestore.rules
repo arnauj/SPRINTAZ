@@ -78,7 +78,14 @@ service cloud.firestore {
     match /sprints/{sprintId} {
       allow read: if isSignedIn();
       allow create: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('createdAt', null) != null;
-      allow update: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('updatedAt', null) != null;
+      allow update: if isTeacher() && request.resource.data.get('updatedAt', null) != null && (
+        // Standard update with full validation
+        (isValidSprint(request.resource.data)) ||
+        // Migration: Adding projectId to existing sprint without projectId
+        (resource.data.projectId == null && request.resource.data.projectId is string &&
+         request.resource.data.name == resource.data.name &&
+         request.resource.data.createdBy == resource.data.createdBy)
+      );
       allow delete: if isTeacher();
     }
 

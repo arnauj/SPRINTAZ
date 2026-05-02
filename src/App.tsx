@@ -74,7 +74,7 @@ export default function App() {
         setUser(userData);
 
         if (userData.role === 'Admin' || userData.role === 'Teacher') {
-          firebaseService.migrateOrphanSprintsToProject('Epyca', firebaseUser.uid)
+          await firebaseService.migrateOrphanSprintsToProject('Epyca', firebaseUser.uid)
             .catch(err => console.warn('Sprint migration skipped:', err));
         }
       } else {
@@ -95,13 +95,13 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const unsubscribe = firebaseService.subscribeProjects((projects) => {
-      if (projects.length > 0 && !activeProject) {
+      if (projects.length > 0) {
         const epycaProject = projects.find(p => p.name === 'Epyca');
         setActiveProject(epycaProject || projects[0]);
       }
     });
     return () => unsubscribe();
-  }, [user, activeProject]);
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;

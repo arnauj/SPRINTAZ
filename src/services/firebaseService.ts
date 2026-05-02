@@ -151,6 +151,51 @@ export const firebaseService = {
     }
   },
 
+  async migrateOrphanSprintsToProject(projectName: string, userId: string): Promise<string | null> {
+    try {
+      const sprintsSnapshot = await getDocs(collection(db, 'sprints'));
+      const orphanSprints = sprintsSnapshot.docs.filter(d => {
+        const data = d.data();
+        return !data.projectId;
+      });
+      if (orphanSprints.length === 0) return null;
+
+      const projectsSnapshot = await getDocs(query(collection(db, 'projects'), where('name', '==', projectName)));
+      let projectId: string;
+      if (projectsSnapshot.empty) {
+        const docRef = await addDoc(collection(db, 'projects'), {
+          name: projectName,
+          description: 'Proyecto creado automáticamente para conservar sprints existentes',
+          createdBy: userId,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        projectId = docRef.id;
+      } else {
+        projectId = projectsSnapshot.docs[0].id;
+      }
+
+      await Promise.all(
+        orphanSprints.map(sprintDoc =>
+          updateDoc(doc(db, 'sprints', sprintDoc.id), {
+            projectId,
+            statuses: sprintDoc.data().statuses || [
+              { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
+              { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
+              { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
+              { id: 'done', name: 'Done', color: 'emerald', order: 3 }
+            ],
+            updatedAt: serverTimestamp()
+          })
+        )
+      );
+      return projectId;
+    } catch (e) {
+      console.error('Migration error:', e);
+      return null;
+    }
+  },
+
   // --- Sprints ---
   async createSprint(sprint: Omit<Sprint, 'id' | 'createdAt' | 'updatedAt'>) {
     try {

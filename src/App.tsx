@@ -161,7 +161,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
-      <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
+      <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
             onClick={() => {

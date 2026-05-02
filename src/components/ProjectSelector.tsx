@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Project, User } from '../types';
 import { auth } from '../lib/firebase';
-import { Plus, FolderOpen, Folder } from 'lucide-react';
+import { Plus, FolderOpen, Folder, Pencil, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProjectSelectorProps {
@@ -15,6 +15,13 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+
+  const isOwnerEmail = auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
+  const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
+  const canManageProjects = isAdmin || currentUser.role === 'Teacher';
 
   useEffect(() => {
     const unsubscribe = firebaseService.subscribeProjects(setProjects);
@@ -36,6 +43,43 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
     setShowCreateModal(false);
   };
 
+  const startEditProject = (project: Project) => {
+    setEditingProject(project);
+    setEditName(project.name);
+    setEditDescription(project.description || '');
+  };
+
+  const cancelEditProject = () => {
+    setEditingProject(null);
+    setEditName('');
+    setEditDescription('');
+  };
+
+  const handleSaveEditProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject || !editName.trim()) return;
+
+    await firebaseService.updateProject(editingProject.id, {
+      name: editName.trim(),
+      description: editDescription.trim() || undefined,
+    });
+
+    cancelEditProject();
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    if (
+      !confirm(
+        `¿Eliminar el proyecto "${project.name}"? Los sprints asociados quedarán huérfanos.`
+      )
+    )
+      return;
+    await firebaseService.deleteProject(project.id);
+  };
+
+  const canEditProject = (project: Project) =>
+    isAdmin || project.createdBy === auth.currentUser?.uid;
+
   return (
     <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl w-full">
@@ -56,27 +100,57 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
         {projects.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             {projects.map((project) => (
-              <motion.button
+              <motion.div
                 key={project.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                onClick={() => onSelectProject(project)}
-                className="p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all text-left rounded-xl cursor-pointer group"
+                className="relative group"
               >
-                <div className="flex items-start gap-3">
-                  <Folder className="w-6 h-6 text-amber-500 shrink-0 mt-1 group-hover:scale-110 transition-transform" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold text-bento-ink truncate text-lg">
-                      {project.name}
-                    </h3>
-                    {project.description && (
-                      <p className="text-sm text-bento-mute line-clamp-2 mt-1">
-                        {project.description}
-                      </p>
-                    )}
+                <button
+                  onClick={() => onSelectProject(project)}
+                  className="w-full p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all text-left rounded-xl cursor-pointer"
+                >
+                  <div className="flex items-start gap-3">
+                    <Folder className="w-6 h-6 text-amber-500 shrink-0 mt-1 group-hover:scale-110 transition-transform" />
+                    <div className="min-w-0 flex-1 pr-16">
+                      <h3 className="font-bold text-bento-ink truncate text-lg">
+                        {project.name}
+                      </h3>
+                      {project.description && (
+                        <p className="text-sm text-bento-mute line-clamp-2 mt-1">
+                          {project.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.button>
+                </button>
+                {canManageProjects && canEditProject(project) && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditProject(project);
+                      }}
+                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
+                      title="Editar proyecto"
+                      aria-label="Editar proyecto"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteProject(project);
+                      }}
+                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+                      title="Eliminar proyecto"
+                      aria-label="Eliminar proyecto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </motion.div>
             ))}
           </div>
         )}
@@ -140,6 +214,62 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
                     className="flex-1 px-4 py-2 text-sm font-bold bg-bento-ink text-white hover:bg-black rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
                   >
                     Crear
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingProject && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+            <motion.div
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.96, opacity: 0 }}
+              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
+            >
+              <h3 className="text-lg font-bold mb-4 text-bento-ink">Editar Proyecto</h3>
+              <form onSubmit={handleSaveEditProject} className="space-y-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+                    Nombre del Proyecto
+                  </label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Ej: Desarrollo Web 2024"
+                    className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+                    Descripción (Opcional)
+                  </label>
+                  <textarea
+                    placeholder="Describe brevemente el proyecto..."
+                    className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink resize-none h-20"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-3 pt-3 border-t border-bento-border">
+                  <button
+                    type="button"
+                    onClick={cancelEditProject}
+                    className="flex-1 px-4 py-2 text-sm font-medium text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-2 text-sm font-bold bg-bento-ink text-white hover:bg-black rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    Guardar
                   </button>
                 </div>
               </form>

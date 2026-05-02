@@ -89,9 +89,9 @@ service cloud.firestore {
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finishedBy', 'status', 'updatedAt']) && request.resource.data.status == 'done') ||
         // Action: Move Task
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
-        // Action: Edit Task Details (any subset of editable fields)
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'color', 'links', 'emailAlerts', 'updatedAt']) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
-        // Action: Add/Remove Comments (any signed-in user)
+        // Action: Edit Task Details (any subset of editable fields, including comments)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'color', 'links', 'emailAlerts', 'comments', 'updatedAt']) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
+        // Action: Add/Remove Comments only (any signed-in user — kept for non-creator collaborators)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'updatedAt']))
       );
       allow delete: if isTeacher() || resource.data.createdBy == request.auth.uid;

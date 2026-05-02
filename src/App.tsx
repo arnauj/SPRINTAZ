@@ -140,27 +140,27 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
-      <header className="h-14 md:h-16 flex items-center justify-between px-3 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+      <header className="h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-1 md:gap-2">
+        <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-2 hover:bg-slate-100 rounded-xl text-bento-ink transition-colors cursor-pointer shrink-0"
+            className="md:hidden p-1.5 hover:bg-slate-100 rounded-xl text-bento-ink transition-colors cursor-pointer shrink-0"
             aria-label="Abrir menú"
           >
             <Menu className="w-5 h-5" />
           </button>
           <div className="h-8 w-8 md:h-9 md:w-9 bg-bento-ink rounded-lg flex items-center justify-center font-bold text-white shrink-0">Z</div>
-          <div className="min-w-0">
-            <h1 className="text-sm md:text-base font-bold tracking-tight truncate">SPRINTAZ</h1>
-            <p className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest mt-0.5">CIFP Zonzamas</p>
+          <div className="min-w-0 leading-tight">
+            <h1 className="text-base font-bold tracking-tight truncate">SPRINTAZ</h1>
+            <p className="text-[9px] uppercase font-semibold text-bento-mute tracking-widest hidden md:block">CIFP Zonzamas</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4 shrink-0">
+        <div className="flex items-center gap-1 md:gap-4 shrink-0">
           {(user.role === 'Admin' || user.role === 'Teacher') && (
             <button
               onClick={() => setShowSendMessage(true)}
-              className="p-2 bg-white border border-bento-border hover:bg-slate-50 rounded-xl transition-all cursor-pointer active:scale-95"
+              className="p-1.5 md:p-2 bg-white border border-bento-border hover:bg-slate-50 rounded-xl transition-all cursor-pointer active:scale-95"
               aria-label="Enviar mensaje al equipo"
               title="Enviar mensaje al equipo"
             >
@@ -169,20 +169,20 @@ export default function App() {
           )}
           <NotificationBell userId={user.uid} />
 
-          <div className="flex items-center gap-2 md:gap-3 md:border-l md:pl-4 border-bento-border">
+          <div className="flex items-center gap-1 md:gap-3 md:border-l md:pl-4 border-bento-border">
             <div className="text-right hidden md:block">
               <p className="text-sm font-bold text-bento-ink leading-none">{user.name}</p>
               <p className="text-[10px] uppercase font-bold text-amber-600 mt-1 tracking-tight">{user.role}</p>
             </div>
             <button
               onClick={() => setShowProfileModal(true)}
-              className="rounded-full transition-all hover:ring-2 hover:ring-amber-400 cursor-pointer"
+              className="rounded-full transition-all hover:ring-2 hover:ring-amber-400 cursor-pointer shrink-0"
               title="Editar perfil"
             >
               {user.photoURL ? (
-                <img src={user.photoURL} className="w-9 h-9 rounded-full border border-bento-border" alt={user.name} referrerPolicy="no-referrer" />
+                <img src={user.photoURL} className="w-8 h-8 md:w-9 md:h-9 rounded-full border border-bento-border" alt={user.name} referrerPolicy="no-referrer" />
               ) : (
-                <div className="w-9 h-9 rounded-full bg-amber-400 text-bento-ink flex items-center justify-center font-bold text-sm border border-bento-border">
+                <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-amber-400 text-bento-ink flex items-center justify-center font-bold text-sm border border-bento-border">
                   {user.name[0]}
                 </div>
               )}
@@ -190,7 +190,7 @@ export default function App() {
             {user.role === 'Admin' && (
               <button
                 onClick={() => setShowAdminPanel(true)}
-                className="p-2 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+                className="p-1.5 md:p-2 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
                 title="Administrar usuarios"
               >
                 <Shield className="w-5 h-5" />
@@ -198,7 +198,7 @@ export default function App() {
             )}
             <button
               onClick={() => signOut(auth)}
-              className="p-2 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+              className="p-1.5 md:p-2 hover:bg-slate-100 rounded-xl text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
               title="Cerrar sesión"
             >
               <LogOut className="w-5 h-5" />

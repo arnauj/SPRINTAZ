@@ -245,24 +245,24 @@ export default function SprintList({
                 onClick={() => onSelectSprint(sprint)}
                 className="group p-4 md:p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all rounded-xl cursor-pointer relative"
               >
-                <div className="flex items-start justify-between gap-3 mb-1">
-                  <h3 className="font-bold text-bento-ink text-base md:text-lg leading-tight pr-2 break-words flex-1">
-                    {sprint.name}
-                  </h3>
+                <h3 className={`font-bold text-bento-ink text-base md:text-lg leading-tight break-words mb-1 ${canManageSprints ? 'pr-20' : ''}`}>
+                  {sprint.name}
+                </h3>
+                <div className="flex items-center gap-2 min-w-0">
+                  {sprint.team ? (
+                    <p className="text-xs text-bento-mute flex items-center gap-1 truncate min-w-0">
+                      <UsersIcon className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{sprint.team}</span>
+                    </p>
+                  ) : (
+                    <p className="text-xs text-bento-mute italic">Sin equipo</p>
+                  )}
                   {sprint.isActive && (
                     <span className="text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
                       Activo
                     </span>
                   )}
                 </div>
-                {sprint.team ? (
-                  <p className="text-xs text-bento-mute flex items-center gap-1 truncate">
-                    <UsersIcon className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{sprint.team}</span>
-                  </p>
-                ) : (
-                  <p className="text-xs text-bento-mute italic">Sin equipo</p>
-                )}
                 {canManageSprints && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                     <button

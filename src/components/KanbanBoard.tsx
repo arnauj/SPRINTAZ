@@ -193,7 +193,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
 
   return (
     <div className="h-full flex flex-col">
-      <header className="grid grid-cols-3 items-center mb-6 px-2 gap-2">
+      <header className="grid grid-cols-[auto_1fr_auto] items-center mb-6 px-2 gap-2">
         <div className="justify-self-start">
           {onBack && (
             <button

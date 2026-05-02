@@ -94,6 +94,17 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    const unsubscribe = firebaseService.subscribeProjects((projects) => {
+      if (projects.length > 0 && !activeProject) {
+        const epycaProject = projects.find(p => p.name === 'Epyca');
+        setActiveProject(epycaProject || projects[0]);
+      }
+    });
+    return () => unsubscribe();
+  }, [user, activeProject]);
+
+  useEffect(() => {
+    if (!user) return;
     if (typeof window === 'undefined' || !('Notification' in window)) return;
     if (Notification.permission === 'default') {
       Notification.requestPermission().catch(() => { /* ignore */ });

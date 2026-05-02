@@ -109,21 +109,30 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
 
     const matchingAlerts = (task.emailAlerts || []).filter(a => a.status === newStatus);
     if (matchingAlerts.length > 0) {
-      const subject = `[SPRINTAZ] ${task.name} → ${newLabel}`;
-      const html = `
-        <div style="font-family:Inter,system-ui,sans-serif;color:#2F2A24;max-width:560px">
-          <h2 style="margin:0 0 8px 0">Cambio de estado en una tarea</h2>
-          <p style="margin:0 0 16px 0;color:#8A8270">Sprint: <strong>${sprint.name}</strong></p>
-          <div style="border:1px solid #E7E2D7;padding:16px;background:#FBFAF6">
-            <p style="margin:0 0 8px 0;font-size:18px"><strong>${task.name}</strong></p>
-            ${task.description ? `<p style="margin:0 0 12px 0;color:#555">${task.description}</p>` : ''}
-            <p style="margin:0">Nuevo estado: <strong>${newLabel}</strong></p>
-            <p style="margin:8px 0 0 0;color:#8A8270;font-size:12px">Movida por ${currentUser.name}</p>
-          </div>
-        </div>
-      `;
+      const notificationMsg = `📌 La tarea "${task.name}" llegó a ${newLabel}`;
+
       await Promise.all(
-        matchingAlerts.map(a => firebaseService.sendEmail(a.email, subject, html))
+        matchingAlerts.map(a => {
+          if (a.email.startsWith('@')) {
+            const userId = a.email.slice(1);
+            return firebaseService.createNotification(userId, notificationMsg);
+          } else {
+            const subject = `[SPRINTAZ] ${task.name} → ${newLabel}`;
+            const html = `
+              <div style="font-family:Inter,system-ui,sans-serif;color:#2F2A24;max-width:560px">
+                <h2 style="margin:0 0 8px 0">Cambio de estado en una tarea</h2>
+                <p style="margin:0 0 16px 0;color:#8A8270">Sprint: <strong>${sprint.name}</strong></p>
+                <div style="border:1px solid #E7E2D7;padding:16px;background:#FBFAF6">
+                  <p style="margin:0 0 8px 0;font-size:18px"><strong>${task.name}</strong></p>
+                  ${task.description ? `<p style="margin:0 0 12px 0;color:#555">${task.description}</p>` : ''}
+                  <p style="margin:0">Nuevo estado: <strong>${newLabel}</strong></p>
+                  <p style="margin:8px 0 0 0;color:#8A8270;font-size:12px">Movida por ${currentUser.name}</p>
+                </div>
+              </div>
+            `;
+            return firebaseService.sendEmail(a.email, subject, html);
+          }
+        })
       );
     }
   };
@@ -298,6 +307,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         sprintId={sprint.id}
         initialStatus={pendingStatus}
         currentUser={currentUser}
+        users={users}
         editingTask={editingTask}
       />
     </div>

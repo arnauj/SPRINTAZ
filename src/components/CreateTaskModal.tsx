@@ -33,10 +33,11 @@ interface CreateTaskModalProps {
   sprintId: string;
   initialStatus: TaskStatus;
   currentUser: User;
+  users: User[];
   editingTask?: Task | null;
 }
 
-export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser, editingTask }: CreateTaskModalProps) {
+export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser, users, editingTask }: CreateTaskModalProps) {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState(5);
   const [description, setDescription] = useState('');
@@ -51,7 +52,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   const [linkUrl, setLinkUrl] = useState('');
 
   const [emailAlerts, setEmailAlerts] = useState<TaskEmailAlert[]>([]);
-  const [alertEmail, setAlertEmail] = useState('');
+  const [alertUserId, setAlertUserId] = useState('');
   const [alertStatus, setAlertStatus] = useState<TaskStatus>('done');
 
   const isEditMode = !!editingTask;
@@ -78,7 +79,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
       setNewComment('');
       setLinkTitle('');
       setLinkUrl('');
-      setAlertEmail('');
+      setAlertUserId('');
       setAlertStatus('done');
     }
   }, [isOpen, editingTask]);
@@ -108,10 +109,11 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   const removeLink = (id: string) => setLinks(prev => prev.filter(l => l.id !== id));
 
   const addAlert = () => {
-    const e = alertEmail.trim();
-    if (!e || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return;
-    setEmailAlerts(prev => [...prev, { id: genId(), status: alertStatus, email: e }]);
-    setAlertEmail('');
+    if (!alertUserId) return;
+    const user = users.find(u => u.uid === alertUserId);
+    if (!user) return;
+    setEmailAlerts(prev => [...prev, { id: genId(), status: alertStatus, email: `@${user.uid}` }]);
+    setAlertUserId('');
   };
 
   const removeAlert = (id: string) => setEmailAlerts(prev => prev.filter(a => a.id !== id));
@@ -386,27 +388,30 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
 
                   <div>
                     <label className="text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2 flex items-center gap-1.5">
-                      <Bell className="w-3.5 h-3.5" /> Alertas por Email {emailAlerts.length > 0 && <span className="text-bento-ink">({emailAlerts.length})</span>}
+                      <Bell className="w-3.5 h-3.5" /> Notificar a {emailAlerts.length > 0 && <span className="text-bento-ink">({emailAlerts.length})</span>}
                     </label>
                     {emailAlerts.length > 0 && (
                       <div className="mb-2 flex flex-col gap-1.5">
-                        {emailAlerts.map(a => (
-                          <div key={a.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
-                            <Bell className="w-4 h-4 text-amber-600 shrink-0" />
-                            <span className="flex-1 text-sm text-amber-900 truncate">
-                              <span className="font-semibold">{STATUS_LABELS[a.status]}</span>
-                              <span className="opacity-70"> → {a.email}</span>
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeAlert(a.id)}
-                              className="p-1 hover:bg-white rounded text-rose-500 cursor-pointer shrink-0"
-                              title="Quitar"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                        {emailAlerts.map(a => {
+                          const notifyUser = users.find(u => u.uid === a.email.replace('@', ''));
+                          return (
+                            <div key={a.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                              <Bell className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span className="flex-1 text-sm text-amber-900 truncate">
+                                <span className="font-semibold">{STATUS_LABELS[a.status]}</span>
+                                <span className="opacity-70"> → {notifyUser?.name || a.email}</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeAlert(a.id)}
+                                className="p-1 hover:bg-white rounded text-rose-500 cursor-pointer shrink-0"
+                                title="Quitar"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_1fr_auto] gap-2 items-end">
@@ -423,27 +428,24 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                         </select>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[10px] text-bento-mute mb-1">Avisar a</p>
-                        <input
-                          type="email"
-                          placeholder="email@dominio.com"
+                        <p className="text-[10px] text-bento-mute mb-1">Notificar a</p>
+                        <select
+                          value={alertUserId}
+                          onChange={(e) => setAlertUserId(e.target.value)}
                           className="w-full px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
-                          value={alertEmail}
-                          onChange={(e) => setAlertEmail(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              addAlert();
-                            }
-                          }}
-                        />
+                        >
+                          <option value="">Selecciona miembro</option>
+                          {users.map(u => (
+                            <option key={u.uid} value={u.uid}>{u.name}</option>
+                          ))}
+                        </select>
                       </div>
                       <button
                         type="button"
                         onClick={addAlert}
-                        disabled={!alertEmail.trim()}
+                        disabled={!alertUserId}
                         className="w-11 h-11 rounded-xl bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center transition-all active:scale-95 shrink-0"
-                        title="Añadir alerta"
+                        title="Añadir notificación"
                       >
                         <Plus className="w-4 h-4" />
                       </button>

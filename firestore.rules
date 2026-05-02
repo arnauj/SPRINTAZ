@@ -90,7 +90,9 @@ service cloud.firestore {
         // Action: Move Task
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
         // Action: Edit Task Details (any subset of editable fields)
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'color', 'updatedAt']) && (isTeacher() || resource.data.createdBy == request.auth.uid))
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'color', 'links', 'emailAlerts', 'updatedAt']) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
+        // Action: Add/Remove Comments (any signed-in user)
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'updatedAt']))
       );
       allow delete: if isTeacher() || resource.data.createdBy == request.auth.uid;
     }
@@ -100,6 +102,15 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.userId);
       allow create: if isSignedIn(); // System creates notifications
       allow update: if isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+    }
+
+    // --- Mail queue (consumed by Firebase "Trigger Email" extension) ---
+    // Documents are deleted by the extension after delivery; only writes are needed.
+    match /mail/{mailId} {
+      allow create: if isSignedIn()
+        && request.resource.data.to is string
+        && request.resource.data.message.subject is string;
+      allow read, update, delete: if false;
     }
   }
 }

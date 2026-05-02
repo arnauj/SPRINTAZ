@@ -1,7 +1,7 @@
 import { useState, useEffect, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus } from '../types';
-import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 
@@ -93,7 +93,8 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
     if (task.status === newStatus) return;
 
     const updates: Partial<Task> = { status: newStatus };
-    let message = `Tarea "${task.name}" movida a ${COLUMNS.find(c => c.id === newStatus)?.label}`;
+    const newLabel = COLUMNS.find(c => c.id === newStatus)?.label;
+    let message = `Tarea "${task.name}" movida a ${newLabel}`;
 
     if (newStatus === 'in_progress') {
       updates.assignedTo = currentUser.uid;
@@ -119,6 +120,26 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
     await Promise.all(
       Array.from(recipients).map(uid => firebaseService.createNotification(uid, message))
     );
+
+    const matchingAlerts = (task.emailAlerts || []).filter(a => a.status === newStatus);
+    if (matchingAlerts.length > 0) {
+      const subject = `[SPRINTAZ] ${task.name} → ${newLabel}`;
+      const html = `
+        <div style="font-family:Inter,system-ui,sans-serif;color:#2F2A24;max-width:560px">
+          <h2 style="margin:0 0 8px 0">Cambio de estado en una tarea</h2>
+          <p style="margin:0 0 16px 0;color:#8A8270">Sprint: <strong>${sprint.name}</strong></p>
+          <div style="border:1px solid #E7E2D7;padding:16px;background:#FBFAF6">
+            <p style="margin:0 0 8px 0;font-size:18px"><strong>${task.name}</strong></p>
+            ${task.description ? `<p style="margin:0 0 12px 0;color:#555">${task.description}</p>` : ''}
+            <p style="margin:0">Nuevo estado: <strong>${newLabel}</strong></p>
+            <p style="margin:8px 0 0 0;color:#8A8270;font-size:12px">Movida por ${currentUser.name}</p>
+          </div>
+        </div>
+      `;
+      await Promise.all(
+        matchingAlerts.map(a => firebaseService.sendEmail(a.email, subject, html))
+      );
+    }
   };
 
   const handleDragStart = (e: DragEvent, task: Task) => {
@@ -319,6 +340,15 @@ function noteTextColor(bg: string): string {
   return lum > 0.6 ? '#1F2937' : '#FFFFFF';
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
@@ -330,6 +360,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
   const noteColor = task.color || NOTE_COLORS[task.id ? task.id.charCodeAt(0) % NOTE_COLORS.length : 0];
   const ink = noteTextColor(noteColor);
   const isDark = ink === '#FFFFFF';
+  const noteBg = hexToRgba(noteColor, 0.82);
 
   // Deterministic slight rotation per card for the realistic postit feel
   const rotation = (() => {
@@ -348,6 +379,10 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       })()
     : '';
 
+  const commentCount = task.comments?.length || 0;
+  const links = task.links || [];
+  const alertCount = task.emailAlerts?.length || 0;
+
   return (
     <motion.div
       layout
@@ -358,9 +393,11 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
       exit={{ opacity: 0, scale: 0.95 }}
       whileHover={{ y: -3, rotate: 0 }}
       style={{
-        backgroundColor: noteColor,
+        backgroundColor: noteBg,
         color: ink,
         zIndex: showOptions ? 50 : 'auto',
+        backdropFilter: 'blur(2px)',
+        WebkitBackdropFilter: 'blur(2px)',
       }}
       className="sticky-note cursor-move group p-4 pt-5"
     >
@@ -383,12 +420,13 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
         >
           {task.name}
         </h5>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 relative">
           <button
             onClick={() => setShowOptions(!showOptions)}
-            className="p-1 transition-all cursor-pointer opacity-100 md:opacity-0 md:group-hover:opacity-100"
+            className="p-1 transition-all cursor-pointer opacity-70 hover:opacity-100"
             style={{ color: ink }}
-            aria-label="Opciones de tarea"
+            aria-label="Mover a otra columna"
+            title="Mover"
           >
             <MoreHorizontal className="w-4 h-4" />
           </button>
@@ -401,21 +439,9 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 5 }}
-                  className="absolute right-3 top-10 w-40 bg-white border border-bento-border shadow-xl z-20 overflow-hidden"
+                  className="absolute right-0 top-7 w-40 bg-white border border-bento-border shadow-xl z-20 overflow-hidden"
                   style={{ color: '#1F2937' }}
                 >
-                  {canModify && (
-                    <button
-                      onClick={() => {
-                        onEdit();
-                        setShowOptions(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 border-b border-bento-border cursor-pointer flex items-center gap-2"
-                    >
-                      <Pencil className="w-3 h-3" />
-                      Editar
-                    </button>
-                  )}
                   {COLUMNS.filter(c => c.id !== task.status).map(col => (
                     <button
                       key={col.id}
@@ -423,23 +449,11 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
                         onStatusChange(col.id);
                         setShowOptions(false);
                       }}
-                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 border-b border-bento-border cursor-pointer"
+                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 border-b border-bento-border last:border-b-0 cursor-pointer"
                     >
                       → {col.label}
                     </button>
                   ))}
-                  {canModify && (
-                    <button
-                      onClick={() => {
-                        onDelete();
-                        setShowOptions(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 cursor-pointer flex items-center gap-2"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                      Eliminar
-                    </button>
-                  )}
                 </motion.div>
               </>
             )}
@@ -456,21 +470,88 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
         </p>
       )}
 
+      {links.length > 0 && (
+        <div className="mt-2 flex flex-col gap-1">
+          {links.slice(0, 3).map(l => (
+            <a
+              key={l.id}
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              draggable={false}
+              className="flex items-center gap-1.5 text-[11px] font-medium underline decoration-dotted truncate hover:opacity-100"
+              style={{ color: ink, opacity: 0.9 }}
+              title={l.url}
+            >
+              <LinkIcon className="w-3 h-3 shrink-0" />
+              <span className="truncate">{l.title}</span>
+            </a>
+          ))}
+          {links.length > 3 && (
+            <span className="text-[10px] italic" style={{ color: ink, opacity: 0.7 }}>
+              + {links.length - 3} más
+            </span>
+          )}
+        </div>
+      )}
+
       <div
         className="mt-3 pt-2 flex items-center justify-between gap-2 border-t"
         style={{
           borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
         }}
       >
-        <div className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: ink, opacity: 0.85 }}>
-          <Calendar className="w-3 h-3" />
-          {dateStr || `${task.weight} pts`}
+        <div className="flex items-center gap-2 text-[11px] font-medium min-w-0" style={{ color: ink, opacity: 0.85 }}>
+          <span className="flex items-center gap-1 shrink-0">
+            <Calendar className="w-3 h-3" />
+            {dateStr || `${task.weight} pts`}
+          </span>
+          {commentCount > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" title={`${commentCount} comentario${commentCount === 1 ? '' : 's'}`}>
+              <MessageSquare className="w-3 h-3" />
+              {commentCount}
+            </span>
+          )}
+          {alertCount > 0 && (
+            <span className="flex items-center gap-0.5 shrink-0" title={`${alertCount} alerta${alertCount === 1 ? '' : 's'} por email`}>
+              <Bell className="w-3 h-3" />
+              {alertCount}
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
+          {canModify && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                draggable={false}
+                className="p-1 hover:bg-black/10 transition-all cursor-pointer opacity-70 hover:opacity-100"
+                style={{ color: ink }}
+                aria-label="Editar tarea"
+                title="Editar"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                onMouseDown={(e) => e.stopPropagation()}
+                draggable={false}
+                className="p-1 hover:bg-rose-500/20 transition-all cursor-pointer opacity-70 hover:opacity-100"
+                style={{ color: ink }}
+                aria-label="Eliminar tarea"
+                title="Eliminar"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </>
+          )}
           {assignedUser && (
             <div
-              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm"
+              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm ml-1"
               style={{ backgroundColor: column.countDot }}
               title={`Asignada: ${assignedUser.name}`}
             >
@@ -479,7 +560,7 @@ function TaskCard({ task, users, column, canModify, onDragStart, onStatusChange,
           )}
           {finishedByUser && !assignedUser && (
             <div
-              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm bg-emerald-500"
+              className="h-5 w-5 rounded-full text-white flex items-center justify-center text-[9px] font-bold shadow-sm bg-emerald-500 ml-1"
               title={`Hecho por: ${finishedByUser.name}`}
             >
               {finishedByUser.name[0]}

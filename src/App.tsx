@@ -69,6 +69,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -148,15 +149,33 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     didAutoSelectProject.current = false;
-    const unsubscribe = firebaseService.subscribeProjects((projects) => {
+    const isOwnerEmail = user.email?.toLowerCase() === 'juanrael@gmail.com';
+    const isAdmin = user.role === 'Admin' || isOwnerEmail;
+    const userTeams = user.teams && user.teams.length > 0 ? user.teams : [user.name];
+    const unsubscribe = firebaseService.subscribeProjects((allProjects) => {
+      setProjects(allProjects);
       if (didAutoSelectProject.current) return;
-      if (projects.length === 0) return;
+      const visible = isAdmin
+        ? allProjects
+        : allProjects.filter((p) => p.team && userTeams.includes(p.team));
+      if (visible.length === 0) return;
       didAutoSelectProject.current = true;
-      const epycaProject = projects.find(p => p.name === 'Epyca');
-      setActiveProject(epycaProject || projects[0]);
+      const epycaProject = visible.find((p) => p.name === 'Epyca');
+      setActiveProject(epycaProject || visible[0]);
     });
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    if (!activeProject) return;
+    const fresh = projects.find((p) => p.id === activeProject.id);
+    if (fresh && fresh !== activeProject) {
+      setActiveProject(fresh);
+    } else if (!fresh) {
+      setActiveProject(null);
+      setActiveSprint(null);
+    }
+  }, [projects, activeProject]);
 
   useEffect(() => {
     if (!user) return;
@@ -544,6 +563,7 @@ export default function App() {
                 >
                   <KanbanBoard
                     sprint={activeSprint}
+                    project={activeProject}
                     currentUser={user}
                     users={users}
                     onBack={() => setActiveSprint(null)}
@@ -559,8 +579,8 @@ export default function App() {
                 >
                   <SprintList
                     project={activeProject}
+                    projects={projects}
                     currentUser={user}
-                    users={users}
                     onSelectSprint={setActiveSprint}
                     onChangeProject={() => {
                       setActiveSprint(null);
@@ -573,6 +593,7 @@ export default function App() {
             ) : (
               <ProjectSelector
                 currentUser={user}
+                users={users}
                 onSelectProject={(project) => {
                   didAutoSelectProject.current = true;
                   setActiveProject(project);

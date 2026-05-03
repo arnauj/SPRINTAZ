@@ -13,6 +13,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  team?: string;
   createdBy: string;
   createdAt: any;
   updatedAt?: any;

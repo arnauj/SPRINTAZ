@@ -57,7 +57,8 @@ service cloud.firestore {
     // --- Projects ---
     function isValidProject(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.createdBy == request.auth.uid;
+        && data.createdBy == request.auth.uid
+        && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 
     match /projects/{projectId} {

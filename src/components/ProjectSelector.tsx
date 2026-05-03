@@ -1,67 +1,102 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Project, User } from '../types';
 import { auth } from '../lib/firebase';
-import { Plus, FolderOpen, Folder, Pencil, Trash2 } from 'lucide-react';
+import { Plus, FolderOpen, Folder, Pencil, Trash2, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProjectSelectorProps {
   currentUser: User;
+  users: User[];
   onSelectProject: (project: Project) => void;
 }
 
-export default function ProjectSelector({ currentUser, onSelectProject }: ProjectSelectorProps) {
+export default function ProjectSelector({ currentUser, users, onSelectProject }: ProjectSelectorProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectTeam, setNewProjectTeam] = useState('');
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editTeam, setEditTeam] = useState('');
 
   const isOwnerEmail = auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
   const canManageProjects = isAdmin || currentUser.role === 'Teacher';
+
+  const userTeams = useMemo(
+    () =>
+      currentUser.teams && currentUser.teams.length > 0
+        ? currentUser.teams
+        : [currentUser.name],
+    [currentUser]
+  );
+
+  const allTeamsAcrossUsers = useMemo(() => {
+    const set = new Set<string>();
+    users.forEach((u) => (u.teams || []).forEach((t) => set.add(t)));
+    userTeams.forEach((t) => set.add(t));
+    return Array.from(set).sort();
+  }, [users, userTeams]);
 
   useEffect(() => {
     const unsubscribe = firebaseService.subscribeProjects(setProjects);
     return () => unsubscribe();
   }, []);
 
+  const visibleProjects = useMemo(() => {
+    if (isAdmin) return projects;
+    return projects.filter((p) => p.team && userTeams.includes(p.team));
+  }, [projects, userTeams, isAdmin]);
+
   const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newProjectName.trim()) return;
+    if (!newProjectName.trim() || !newProjectTeam.trim()) return;
 
     await firebaseService.createProject({
       name: newProjectName.trim(),
       description: newProjectDescription.trim() || undefined,
+      team: newProjectTeam.trim(),
       createdBy: auth.currentUser?.uid || '',
     });
 
     setNewProjectName('');
     setNewProjectDescription('');
+    setNewProjectTeam('');
     setShowCreateModal(false);
+  };
+
+  const handleOpenCreate = () => {
+    setNewProjectName('');
+    setNewProjectDescription('');
+    setNewProjectTeam(userTeams[0] || '');
+    setShowCreateModal(true);
   };
 
   const startEditProject = (project: Project) => {
     setEditingProject(project);
     setEditName(project.name);
     setEditDescription(project.description || '');
+    setEditTeam(project.team || '');
   };
 
   const cancelEditProject = () => {
     setEditingProject(null);
     setEditName('');
     setEditDescription('');
+    setEditTeam('');
   };
 
   const handleSaveEditProject = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProject || !editName.trim()) return;
+    if (!editingProject || !editName.trim() || !editTeam.trim()) return;
 
     await firebaseService.updateProject(editingProject.id, {
       name: editName.trim(),
       description: editDescription.trim() || undefined,
+      team: editTeam.trim(),
     });
 
     cancelEditProject();
@@ -80,6 +115,49 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
   const canEditProject = (project: Project) =>
     isAdmin || project.createdBy === auth.currentUser?.uid;
 
+  const renderTeamPicker = (value: string, onChange: (team: string) => void, idSuffix: string) => (
+    <>
+      <input
+        type="text"
+        list={`project-team-suggestions-${idSuffix}`}
+        required
+        placeholder="Escribe un equipo nuevo o elige uno existente"
+        className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <datalist id={`project-team-suggestions-${idSuffix}`}>
+        {allTeamsAcrossUsers.map((t) => (
+          <option key={t} value={t} />
+        ))}
+      </datalist>
+      {allTeamsAcrossUsers.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-2">
+          {allTeamsAcrossUsers.map((t) => {
+            const selected = value === t;
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onChange(t)}
+                className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                  selected
+                    ? 'bg-amber-400 border-amber-400 text-bento-ink'
+                    : 'bg-white border-bento-border text-bento-mute hover:border-amber-400 hover:text-bento-ink'
+                }`}
+              >
+                {t}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
+        Solo los miembros de este equipo verán el proyecto y sus sprints.
+      </p>
+    </>
+  );
+
   return (
     <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl w-full">
@@ -93,13 +171,15 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
             Selecciona un Proyecto
           </h2>
           <p className="text-bento-mute">
-            Comienza seleccionando un proyecto existente o crea uno nuevo
+            {isAdmin
+              ? 'Comienza seleccionando un proyecto existente o crea uno nuevo'
+              : 'Estos son los proyectos de tus equipos'}
           </p>
         </motion.div>
 
-        {projects.length > 0 && (
+        {visibleProjects.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            {projects.map((project) => (
+            {visibleProjects.map((project) => (
               <motion.div
                 key={project.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -116,6 +196,14 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
                       <h3 className="font-bold text-bento-ink truncate text-lg">
                         {project.name}
                       </h3>
+                      {project.team ? (
+                        <p className="text-xs text-bento-mute flex items-center gap-1 truncate min-w-0 mt-1">
+                          <UsersIcon className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{project.team}</span>
+                        </p>
+                      ) : (
+                        <p className="text-xs text-bento-mute italic mt-1">Sin equipo</p>
+                      )}
                       {project.description && (
                         <p className="text-sm text-bento-mute line-clamp-2 mt-1">
                           {project.description}
@@ -153,17 +241,30 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
               </motion.div>
             ))}
           </div>
+        ) : (
+          !canManageProjects && (
+            <div className="text-center text-bento-mute py-8">
+              <p className="text-base font-semibold text-bento-ink/70">
+                No hay proyectos para tus equipos.
+              </p>
+              <p className="text-sm mt-1">
+                Pide a un profesor que cree un proyecto para tu equipo.
+              </p>
+            </div>
+          )
         )}
 
-        <div className="flex gap-3 justify-center">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-bento-ink text-white font-semibold rounded-xl hover:bg-black transition-colors cursor-pointer"
-          >
-            <Plus className="w-5 h-5" />
-            Nuevo Proyecto
-          </button>
-        </div>
+        {canManageProjects && (
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleOpenCreate}
+              className="flex items-center gap-2 px-6 py-3 bg-bento-ink text-white font-semibold rounded-xl hover:bg-black transition-colors cursor-pointer"
+            >
+              <Plus className="w-5 h-5" />
+              Nuevo Proyecto
+            </button>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -173,7 +274,7 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Crear Proyecto</h3>
               <form onSubmit={handleCreateProject} className="space-y-4">
@@ -189,6 +290,12 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
                     value={newProjectName}
                     onChange={(e) => setNewProjectName(e.target.value)}
                   />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+                    Equipo
+                  </label>
+                  {renderTeamPicker(newProjectTeam, setNewProjectTeam, 'create')}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
@@ -229,7 +336,7 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl"
+              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Editar Proyecto</h3>
               <form onSubmit={handleSaveEditProject} className="space-y-4">
@@ -245,6 +352,12 @@ export default function ProjectSelector({ currentUser, onSelectProject }: Projec
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+                    Equipo
+                  </label>
+                  {renderTeamPicker(editTeam, setEditTeam, 'edit')}
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">

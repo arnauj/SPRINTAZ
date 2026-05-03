@@ -3,6 +3,7 @@ import { firebaseService } from '../services/firebaseService';
 import { User, UserRole } from '../types';
 import { X, Shield, Trash2, Pencil, Search, ImageIcon, User as UserIcon, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useConfirmDialog } from './ConfirmDialog';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   Admin: 'Administrador',
@@ -32,6 +33,7 @@ interface EditState {
 }
 
 export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId }: AdminUsersPanelProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [editingState, setEditingState] = useState<EditState | null>(null);
   const [savingUid, setSavingUid] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -123,7 +125,12 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
 
   const handleDelete = async (u: User) => {
     if (u.uid === currentUserId) return;
-    if (!confirm(`¿Eliminar al usuario "${u.name}"? Esta acción no se puede deshacer.`)) return;
+    const confirmed = await confirm({
+      title: 'Eliminar usuario',
+      message: `¿Eliminar al usuario "${u.name}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteUser(u.uid);
   };
 
@@ -136,6 +143,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
   const isSelfEditing = editingState && editingState.user.uid === currentUserId;
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-black/30 backdrop-blur-sm">
@@ -444,5 +452,7 @@ export default function AdminUsersPanel({ isOpen, onClose, users, currentUserId 
         </div>
       )}
     </AnimatePresence>
+    {confirmDialog}
+    </>
   );
 }

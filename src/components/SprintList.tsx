@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Sprint, SprintStatus, Task, User, Project } from '../types';
+import { Sprint, SprintState, SprintStatus, Task, User, Project } from '../types';
 import { auth } from '../lib/firebase';
 import {
   Plus,
@@ -12,7 +12,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SprintStatusEditor from './SprintStatusEditor';
-import { colorForStatus, defaultSprintStatuses, flattenStatuses } from '../lib/sprintStatuses';
+import {
+  colorForStatus,
+  defaultProjectSprintStates,
+  defaultSprintStatuses,
+  flattenStatuses,
+} from '../lib/sprintStatuses';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface SprintListProps {
   project: Project;
@@ -29,15 +35,18 @@ export default function SprintList({
   onSelectSprint,
   onChangeProject,
 }: SprintListProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
   const [newSprintTeam, setNewSprintTeam] = useState('');
-  const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
+  const [newSprintStateId, setNewSprintStateId] = useState('');
+  const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(() => defaultSprintStatuses());
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editName, setEditName] = useState('');
   const [editTeam, setEditTeam] = useState('');
-  const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
+  const [editStateId, setEditStateId] = useState('');
+  const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(() => defaultSprintStatuses());
   const [tasksBySprintId, setTasksBySprintId] = useState<Record<string, Task[]>>({});
 
   const userTeams = useMemo(
@@ -57,6 +66,16 @@ export default function SprintList({
     auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
   const canManageSprints = isAdmin || currentUser.role === 'Teacher';
+
+  const projectSprintStates = useMemo(
+    () =>
+      project.sprintStates && project.sprintStates.length > 0
+        ? [...project.sprintStates].sort((a, b) => a.order - b.order)
+        : defaultProjectSprintStates(),
+    [project.sprintStates]
+  );
+
+  const defaultSprintStateId = projectSprintStates[0]?.id || 'planned';
 
   const allTeamsAcrossUsers = useMemo(() => {
     const set = new Set<string>();
@@ -100,6 +119,7 @@ export default function SprintList({
   const handleOpenCreate = () => {
     setNewSprintName('');
     setNewSprintTeam(userTeams[0] || '');
+    setNewSprintStateId(defaultSprintStateId);
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(true);
   };
@@ -139,12 +159,14 @@ export default function SprintList({
       team: newSprintTeam.trim(),
       projectId: project.id,
       isActive: true,
+      stateId: newSprintStateId || defaultSprintStateId,
       statuses,
       createdBy: auth.currentUser?.uid || '',
     });
 
     setNewSprintName('');
     setNewSprintTeam('');
+    setNewSprintStateId(defaultSprintStateId);
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(false);
   };
@@ -153,6 +175,7 @@ export default function SprintList({
     setEditingSprint(sprint);
     setEditName(sprint.name);
     setEditTeam(sprint.team || '');
+    setEditStateId(sprint.stateId || defaultSprintStateId);
     setEditStatuses(
       sprint.statuses && sprint.statuses.length > 0
         ? sprint.statuses
@@ -164,6 +187,7 @@ export default function SprintList({
     setEditingSprint(null);
     setEditName('');
     setEditTeam('');
+    setEditStateId(defaultSprintStateId);
     setEditStatuses(defaultSprintStatuses());
   };
 
@@ -177,6 +201,7 @@ export default function SprintList({
     await firebaseService.updateSprint(editingSprint.id, {
       name: editName.trim(),
       team: editTeam.trim(),
+      stateId: editStateId || defaultSprintStateId,
       statuses,
     });
 
@@ -184,16 +209,17 @@ export default function SprintList({
   };
 
   const handleDeleteSprint = async (sprint: Sprint) => {
-    if (
-      !confirm(
-        `¿Eliminar el sprint "${sprint.name}"? Las tareas asociadas quedarán huérfanas.`
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: 'Eliminar sprint',
+      message: `¿Eliminar el sprint "${sprint.name}"? Las tareas asociadas quedarán huérfanas.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteSprint(sprint.id);
   };
 
   return (
+    <>
     <div className="h-full bg-white/70 border border-bento-border flex flex-col p-4 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-5 md:mb-6 gap-3 shrink-0">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
@@ -265,7 +291,12 @@ export default function SprintList({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {visibleSprints.map((sprint) => (
+            {visibleSprints.map((sprint) => {
+                const sprintState =
+                  projectSprintStates.find(state => state.id === sprint.stateId) ||
+                  projectSprintStates[0];
+                const statePalette = colorForStatus(sprintState?.color);
+                return (
               <motion.div
                 key={sprint.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -274,9 +305,20 @@ export default function SprintList({
                 className="group p-4 md:p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all rounded-xl cursor-pointer relative"
               >
                 <div className={`flex items-start gap-2 mb-2 min-w-0 ${canManageSprints ? 'pr-20' : ''}`}>
-                  {sprint.isActive && (
-                    <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
-                      Activo
+                  {sprintState && (
+                    <span
+                      className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-tighter shrink-0"
+                      style={{
+                        backgroundColor: statePalette.tintSoft,
+                        borderColor: statePalette.tint,
+                        color: statePalette.ink,
+                      }}
+                    >
+                      <span
+                        className="h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: statePalette.countDot }}
+                      />
+                      {sprintState.name}
                     </span>
                   )}
                   <h3 className="font-bold text-bento-ink text-base md:text-lg leading-tight break-words min-w-0">
@@ -346,7 +388,8 @@ export default function SprintList({
                   </div>
                 )}
               </motion.div>
-            ))}
+                );
+              })}
           </div>
         )}
       </div>
@@ -423,6 +466,11 @@ export default function SprintList({
                     Solo los miembros de este equipo verán el sprint.
                   </p>
                 </div>
+                <SprintStateSelect
+                  states={projectSprintStates}
+                  value={newSprintStateId || defaultSprintStateId}
+                  onChange={setNewSprintStateId}
+                />
                 <SprintStatusEditor
                   value={newSprintStatuses}
                   onChange={setNewSprintStatuses}
@@ -514,6 +562,12 @@ export default function SprintList({
                     </div>
                   )}
                 </div>
+                <SprintStateSelect
+                  states={projectSprintStates}
+                  value={editStateId || defaultSprintStateId}
+                  onChange={setEditStateId}
+                  className="w-full sm:w-1/2"
+                />
                 <SprintStatusEditor
                   value={editStatuses}
                   onChange={setEditStatuses}
@@ -538,6 +592,50 @@ export default function SprintList({
           </div>
         )}
       </AnimatePresence>
+    </div>
+    {confirmDialog}
+    </>
+  );
+}
+
+function SprintStateSelect({
+  states,
+  value,
+  onChange,
+  className = '',
+}: {
+  states: SprintState[];
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const selected = states.find(state => state.id === value) || states[0];
+  const palette = colorForStatus(selected?.color);
+
+  return (
+    <div className={className}>
+      <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+        Estado del sprint
+      </label>
+      <div className="relative">
+        <select
+          value={selected?.id || ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink cursor-pointer"
+        >
+          {states.map((state) => (
+            <option key={state.id} value={state.id}>
+              {state.name}
+            </option>
+          ))}
+        </select>
+        {selected && (
+          <span
+            className="pointer-events-none absolute right-4 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: palette.countDot }}
+          />
+        )}
+      </div>
     </div>
   );
 }

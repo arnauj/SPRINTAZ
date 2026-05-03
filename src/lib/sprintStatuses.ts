@@ -1,4 +1,4 @@
-import { SprintStatus } from '../types';
+import { SprintState, SprintStatus } from '../types';
 
 export interface PanelColor {
   id: string;
@@ -41,6 +41,17 @@ export function defaultSprintStatuses(): SprintStatus[] {
     { id: 'todo',        name: 'To Do',       color: 'blue',    order: 1 },
     { id: 'in_progress', name: 'In Progress', color: 'amber',   order: 2 },
     { id: 'done',        name: 'Done',        color: 'emerald', order: 3 },
+  ];
+}
+
+export function defaultProjectSprintStates(): SprintState[] {
+  return [
+    { id: 'planned', name: 'Planificado', color: 'blue', order: 0 },
+    { id: 'active', name: 'Activo', color: 'emerald', order: 1 },
+    { id: 'hibernated', name: 'Hibernado', color: 'amber', order: 2 },
+    { id: 'completed', name: 'Completado', color: 'cyan', order: 3 },
+    { id: 'closed', name: 'Cerrado', color: 'slate', order: 4 },
+    { id: 'cancelled', name: 'Cancelado', color: 'rose', order: 5 },
   ];
 }
 

@@ -3,6 +3,7 @@ import { firebaseService } from '../services/firebaseService';
 import { UserRole, User } from '../types';
 import { auth } from '../lib/firebase';
 import { Trash2, Shield } from 'lucide-react';
+import { useConfirmDialog } from './ConfirmDialog';
 
 const ROLE_LABELS: Record<UserRole, string> = {
   Admin: 'Administrador',
@@ -22,6 +23,7 @@ interface SprintSidebarProps {
 }
 
 export default function SprintSidebar({ currentUser, users }: SprintSidebarProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const userTeams = useMemo(
     () =>
       currentUser.teams && currentUser.teams.length > 0
@@ -34,7 +36,12 @@ export default function SprintSidebar({ currentUser, users }: SprintSidebarProps
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
 
   const handleDeleteUser = async (target: User) => {
-    if (!confirm(`¿Eliminar al usuario "${target.name}"? Esta acción no se puede deshacer.`)) return;
+    const confirmed = await confirm({
+      title: 'Eliminar usuario',
+      message: `¿Eliminar al usuario "${target.name}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteUser(target.uid);
   };
 
@@ -49,6 +56,7 @@ export default function SprintSidebar({ currentUser, users }: SprintSidebarProps
   });
 
   return (
+    <>
     <aside className="w-64 flex flex-col gap-4 shrink-0 h-full">
       <div className="bg-white border border-bento-border p-5 flex-1 flex flex-col shadow-sm overflow-hidden">
         <div className="flex items-center justify-between mb-4">
@@ -111,5 +119,7 @@ export default function SprintSidebar({ currentUser, users }: SprintSidebarProps
         </div>
       </div>
     </aside>
+    {confirmDialog}
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquar
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
 import { flattenStatuses, colorForStatus, defaultSprintStatuses } from '../lib/sprintStatuses';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface KanbanBoardProps {
   sprint: Sprint;
@@ -53,6 +54,7 @@ function daysUntil(end?: string): number | null {
 }
 
 export default function KanbanBoard({ sprint, currentUser, users, onBack }: KanbanBoardProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
@@ -174,7 +176,12 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
   };
 
   const handleDelete = async (task: Task) => {
-    if (!confirm(`¿Eliminar la tarea "${task.name}"? Esta acción no se puede deshacer.`)) return;
+    const confirmed = await confirm({
+      title: 'Eliminar tarea',
+      message: `¿Eliminar la tarea "${task.name}"? Esta acción no se puede deshacer.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteTask(task.id);
   };
 
@@ -192,6 +199,7 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
   const range = formatRange(sprint.startDate, sprint.endDate);
 
   return (
+    <>
     <div className="h-full flex flex-col">
       <header className="grid grid-cols-[auto_1fr_auto] items-center mb-6 px-2 gap-2">
         <div className="justify-self-start">
@@ -349,6 +357,8 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
         editingTask={editingTask}
       />
     </div>
+    {confirmDialog}
+    </>
   );
 }
 

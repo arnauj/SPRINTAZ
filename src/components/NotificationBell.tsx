@@ -7,6 +7,8 @@ import { motion, AnimatePresence } from 'motion/react';
 export default function NotificationBell({ userId }: { userId: string }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
 
@@ -41,11 +43,27 @@ export default function NotificationBell({ userId }: { userId: string }) {
     return () => unsubscribe();
   }, [userId]);
 
+  useEffect(() => {
+    if (!showDropdown) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (buttonRef.current?.contains(target) || dropdownRef.current?.contains(target)) {
+        return;
+      }
+      setShowDropdown(false);
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [showDropdown]);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="relative">
       <button
+        ref={buttonRef}
         onClick={() => setShowDropdown(!showDropdown)}
         className="p-2 bg-white border border-bento-border hover:bg-slate-50 relative transition-all cursor-pointer active:scale-95"
         aria-label="Notifications"
@@ -69,6 +87,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               onClick={() => setShowDropdown(false)}
             />
             <motion.div
+              ref={dropdownRef}
               initial={{ opacity: 0, y: 10, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}

@@ -8,3 +8,10 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 );
+
+if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    const swUrl = new URL('sw.js', document.baseURI).toString();
+    navigator.serviceWorker.register(swUrl, { scope: './' }).catch(() => { /* ignore */ });
+  });
+}

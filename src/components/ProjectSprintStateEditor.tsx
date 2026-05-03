@@ -39,7 +39,7 @@ export default function ProjectSprintStateEditor({
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest">
-          Estado
+          Estado de los sprints
         </label>
         <button
           type="button"

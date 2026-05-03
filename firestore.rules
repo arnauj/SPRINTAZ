@@ -57,14 +57,19 @@ service cloud.firestore {
     // --- Projects ---
     function isValidProject(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.createdBy == request.auth.uid
         && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 
     match /projects/{projectId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidProject(request.resource.data) && request.resource.data.get('createdAt', null) != null;
-      allow update: if (isOwner(resource.data.createdBy) || isAdmin()) && isValidProject(request.resource.data) && request.resource.data.get('updatedAt', null) != null;
+      allow create: if isSignedIn()
+        && isValidProject(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('createdAt', null) != null;
+      allow update: if (isOwner(resource.data.createdBy) || isAdmin())
+        && isValidProject(request.resource.data)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.get('updatedAt', null) != null;
       allow delete: if isOwner(resource.data.createdBy) || isAdmin();
     }
 
@@ -72,16 +77,18 @@ service cloud.firestore {
     function isValidSprint(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && data.projectId is string && data.projectId.size() > 0
-        && data.createdBy == request.auth.uid
         && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 
     match /sprints/{sprintId} {
       allow read: if isSignedIn();
-      allow create: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('createdAt', null) != null;
+      allow create: if isTeacher()
+        && isValidSprint(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('createdAt', null) != null;
       allow update: if isTeacher() && request.resource.data.get('updatedAt', null) != null && (
-        // Standard update with full validation
-        (isValidSprint(request.resource.data)) ||
+        // Standard update with full validation; createdBy must not change
+        (isValidSprint(request.resource.data) && request.resource.data.createdBy == resource.data.createdBy) ||
         // Migration: Adding projectId to existing sprint without projectId
         (resource.data.projectId == null && request.resource.data.projectId is string &&
          request.resource.data.name == resource.data.name &&

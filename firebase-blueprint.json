@@ -13,6 +13,34 @@
       },
       "required": ["uid", "name", "email", "role"]
     },
+    "Project": {
+      "title": "Project",
+      "description": "A group of sprints with a configurable catalog of sprint states.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "sprintStates": {
+          "type": "array",
+          "items": { "$ref": "#/entities/SprintState" }
+        },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "createdBy"]
+    },
+    "SprintState": {
+      "title": "SprintState",
+      "description": "A project-level state that can be assigned to a sprint.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": "string" },
+        "order": { "type": "number" }
+      },
+      "required": ["id", "name", "order"]
+    },
     "Sprint": {
       "title": "Sprint",
       "description": "A container for tasks within a period.",
@@ -23,6 +51,7 @@
         "startDate": { "type": "string", "format": "date-time" },
         "endDate": { "type": "string", "format": "date-time" },
         "isActive": { "type": "boolean" },
+        "stateId": { "type": "string" },
         "createdBy": { "type": "string" }
       },
       "required": ["name", "createdBy"]
@@ -64,6 +93,10 @@
     "users": {
       "schema": "User",
       "description": "Global users collection"
+    },
+    "projects": {
+      "schema": "Project",
+      "description": "Global projects collection"
     },
     "sprints": {
       "schema": "Sprint",

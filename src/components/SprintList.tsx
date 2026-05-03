@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Sprint, SprintStatus, Task, User, Project } from '../types';
+import { Sprint, SprintState, SprintStatus, Task, User, Project } from '../types';
 import { auth } from '../lib/firebase';
 import {
   Plus,
@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SprintStatusEditor from './SprintStatusEditor';
-import { colorForStatus, defaultSprintStatuses, flattenStatuses } from '../lib/sprintStatuses';
+import {
+  colorForStatus,
+  defaultProjectSprintStates,
+  defaultSprintStatuses,
+  flattenStatuses,
+} from '../lib/sprintStatuses';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface SprintListProps {
   project: Project;
@@ -33,14 +39,17 @@ export default function SprintList({
   onSelectSprint,
   onChangeProject,
 }: SprintListProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
-  const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
+  const [newSprintStateId, setNewSprintStateId] = useState('');
+  const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(() => defaultSprintStatuses());
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editName, setEditName] = useState('');
   const [editProjectId, setEditProjectId] = useState('');
-  const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
+  const [editStateId, setEditStateId] = useState('');
+  const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(() => defaultSprintStatuses());
   const [tasksBySprintId, setTasksBySprintId] = useState<Record<string, Task[]>>({});
 
   const userTeams = useMemo(
@@ -65,6 +74,26 @@ export default function SprintList({
     if (isAdmin) return projects;
     return projects.filter((p) => p.team && userTeams.includes(p.team));
   }, [projects, userTeams, isAdmin]);
+
+  const statesForProject = (projectId: string): SprintState[] => {
+    const targetProject = projects.find((p) => p.id === projectId) || project;
+    return targetProject.sprintStates && targetProject.sprintStates.length > 0
+      ? [...targetProject.sprintStates].sort((a, b) => a.order - b.order)
+      : defaultProjectSprintStates();
+  };
+
+  const projectSprintStates = useMemo(
+    () => statesForProject(project.id),
+    [project, projects]
+  );
+
+  const editProjectSprintStates = useMemo(
+    () => statesForProject(editProjectId || project.id),
+    [editProjectId, project, projects]
+  );
+
+  const defaultSprintStateId = projectSprintStates[0]?.id || 'planned';
+  const defaultEditSprintStateId = editProjectSprintStates[0]?.id || 'planned';
 
   useEffect(() => {
     if (sprints.length === 0) {
@@ -95,6 +124,7 @@ export default function SprintList({
 
   const handleOpenCreate = () => {
     setNewSprintName('');
+    setNewSprintStateId(defaultSprintStateId);
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(true);
   };
@@ -133,11 +163,13 @@ export default function SprintList({
       name: newSprintName.trim(),
       projectId: project.id,
       isActive: true,
+      stateId: newSprintStateId || defaultSprintStateId,
       statuses,
       createdBy: auth.currentUser?.uid || '',
     });
 
     setNewSprintName('');
+    setNewSprintStateId(defaultSprintStateId);
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(false);
   };
@@ -146,6 +178,7 @@ export default function SprintList({
     setEditingSprint(sprint);
     setEditName(sprint.name);
     setEditProjectId(sprint.projectId);
+    setEditStateId(sprint.stateId || statesForProject(sprint.projectId)[0]?.id || 'planned');
     setEditStatuses(
       sprint.statuses && sprint.statuses.length > 0
         ? sprint.statuses
@@ -157,6 +190,7 @@ export default function SprintList({
     setEditingSprint(null);
     setEditName('');
     setEditProjectId('');
+    setEditStateId(defaultEditSprintStateId);
     setEditStatuses(defaultSprintStatuses());
   };
 
@@ -170,6 +204,9 @@ export default function SprintList({
     await firebaseService.updateSprint(editingSprint.id, {
       name: editName.trim(),
       projectId: editProjectId,
+      stateId: editProjectSprintStates.some((state) => state.id === editStateId)
+        ? editStateId
+        : defaultEditSprintStateId,
       statuses,
     });
 
@@ -177,27 +214,34 @@ export default function SprintList({
   };
 
   const handleDeleteSprint = async (sprint: Sprint) => {
-    if (
-      !confirm(
-        `¿Eliminar el sprint "${sprint.name}"? Las tareas asociadas quedarán huérfanas.`
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: 'Eliminar sprint',
+      message: `¿Eliminar el sprint "${sprint.name}"? Las tareas asociadas quedarán huérfanas.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteSprint(sprint.id);
   };
 
   const handleCloseSprint = async (sprint: Sprint) => {
-    if (
-      !confirm(
-        `¿Cerrar el sprint "${sprint.name}"? No se podrán añadir ni mover tareas. Solo un administrador podrá reabrirlo.`
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: 'Cerrar sprint',
+      message: `¿Cerrar el sprint "${sprint.name}"? No se podrán añadir ni mover tareas. Solo un administrador podrá reabrirlo.`,
+      confirmLabel: 'Cerrar',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
     await firebaseService.closeSprint(sprint.id, auth.currentUser?.uid || '');
   };
 
   const handleReopenSprint = async (sprint: Sprint) => {
-    if (!confirm(`¿Reabrir el sprint "${sprint.name}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Reabrir sprint',
+      message: `¿Reabrir el sprint "${sprint.name}"?`,
+      confirmLabel: 'Reabrir',
+      tone: 'warning',
+    });
+    if (!confirmed) return;
     await firebaseService.reopenSprint(sprint.id);
   };
 
@@ -247,6 +291,7 @@ export default function SprintList({
   };
 
   return (
+    <>
     <div className="h-full bg-white/70 border border-bento-border flex flex-col p-4 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-5 md:mb-6 gap-3 shrink-0">
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
@@ -317,6 +362,9 @@ export default function SprintList({
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
             {sortedSprints.map((sprint) => {
               const sprintStatuses = sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses();
+              const sprintStates = statesForProject(sprint.projectId);
+              const sprintState = sprintStates.find((state) => state.id === sprint.stateId) || sprintStates[0];
+              const statePalette = colorForStatus(sprintState?.color);
               const sprintTasks = tasksBySprintId[sprint.id] || [];
               const closed = !!sprint.isClosed;
               const summary = closed ? summarizeTasks(sprintTasks, sprintStatuses) : null;
@@ -344,9 +392,20 @@ export default function SprintList({
                         Cerrado
                       </span>
                     ) : (
-                      sprint.isActive && (
-                        <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
-                          Activo
+                      sprintState && (
+                        <span
+                          className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-tighter shrink-0"
+                          style={{
+                            backgroundColor: statePalette.tintSoft,
+                            borderColor: statePalette.tint,
+                            color: statePalette.ink,
+                          }}
+                        >
+                          <span
+                            className="h-1.5 w-1.5 rounded-full"
+                            style={{ backgroundColor: statePalette.countDot }}
+                          />
+                          {sprintState.name}
                         </span>
                       )
                     )}
@@ -499,6 +558,11 @@ export default function SprintList({
                     onChange={(e) => setNewSprintName(e.target.value)}
                   />
                 </div>
+                <SprintStateSelect
+                  states={projectSprintStates}
+                  value={newSprintStateId || defaultSprintStateId}
+                  onChange={setNewSprintStateId}
+                />
                 <SprintStatusEditor
                   value={newSprintStatuses}
                   onChange={setNewSprintStatuses}
@@ -583,6 +647,12 @@ export default function SprintList({
                     Cambiar el proyecto traslada el sprint al equipo del nuevo proyecto.
                   </p>
                 </div>
+                <SprintStateSelect
+                  states={editProjectSprintStates}
+                  value={editStateId || defaultEditSprintStateId}
+                  onChange={setEditStateId}
+                  className="w-full sm:w-1/2"
+                />
                 <SprintStatusEditor
                   value={editStatuses}
                   onChange={setEditStatuses}
@@ -607,6 +677,50 @@ export default function SprintList({
           </div>
         )}
       </AnimatePresence>
+    </div>
+    {confirmDialog}
+    </>
+  );
+}
+
+function SprintStateSelect({
+  states,
+  value,
+  onChange,
+  className = '',
+}: {
+  states: SprintState[];
+  value: string;
+  onChange: (value: string) => void;
+  className?: string;
+}) {
+  const selected = states.find(state => state.id === value) || states[0];
+  const palette = colorForStatus(selected?.color);
+
+  return (
+    <div className={className}>
+      <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
+        Estado del sprint
+      </label>
+      <div className="relative">
+        <select
+          value={selected?.id || ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full appearance-none px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink cursor-pointer"
+        >
+          {states.map((state) => (
+            <option key={state.id} value={state.id}>
+              {state.name}
+            </option>
+          ))}
+        </select>
+        {selected && (
+          <span
+            className="pointer-events-none absolute right-4 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full"
+            style={{ backgroundColor: palette.countDot }}
+          />
+        )}
+      </div>
     </div>
   );
 }

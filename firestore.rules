@@ -57,7 +57,8 @@ service cloud.firestore {
     // --- Projects ---
     function isValidProject(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && (!('team' in data) || (data.team is string && data.team.size() <= 100));
+        && (!('team' in data) || (data.team is string && data.team.size() <= 100))
+        && (!('sprintStates' in data) || data.sprintStates is list);
     }
 
     match /projects/{projectId} {
@@ -77,6 +78,7 @@ service cloud.firestore {
     function isValidSprint(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && data.projectId is string && data.projectId.size() > 0
+        && (!('stateId' in data) || (data.stateId is string && data.stateId.size() > 0 && data.stateId.size() <= 128))
         && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 

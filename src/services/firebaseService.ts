@@ -16,6 +16,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, auth, storage } from '../lib/firebase';
 import { OperationType, Task, Sprint, User, Notification, Project } from '../types';
+import { defaultProjectSprintStates, defaultSprintStatuses } from '../lib/sprintStatuses';
 
 function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const errInfo = {
@@ -116,6 +117,7 @@ export const firebaseService = {
     try {
       const docRef = await addDoc(collection(db, 'projects'), {
         ...project,
+        sprintStates: project.sprintStates || defaultProjectSprintStates(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -166,6 +168,7 @@ export const firebaseService = {
         const docRef = await addDoc(collection(db, 'projects'), {
           name: projectName,
           description: 'Proyecto creado automáticamente para conservar sprints existentes',
+          sprintStates: defaultProjectSprintStates(),
           createdBy: userId,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
@@ -179,12 +182,8 @@ export const firebaseService = {
         orphanSprints.map(sprintDoc =>
           updateDoc(doc(db, 'sprints', sprintDoc.id), {
             projectId,
-            statuses: sprintDoc.data().statuses || [
-              { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
-              { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
-              { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
-              { id: 'done', name: 'Done', color: 'emerald', order: 3 }
-            ],
+            stateId: sprintDoc.data().stateId || defaultProjectSprintStates()[0].id,
+            statuses: sprintDoc.data().statuses || defaultSprintStatuses(),
             updatedAt: serverTimestamp()
           })
         )
@@ -201,12 +200,8 @@ export const firebaseService = {
     try {
       const docRef = await addDoc(collection(db, 'sprints'), {
         ...sprint,
-        statuses: sprint.statuses || [
-          { id: 'backlog', name: 'Backlog', color: 'slate', order: 0 },
-          { id: 'todo', name: 'To Do', color: 'blue', order: 1 },
-          { id: 'in_progress', name: 'In Progress', color: 'amber', order: 2 },
-          { id: 'done', name: 'Done', color: 'emerald', order: 3 }
-        ],
+        stateId: sprint.stateId || defaultProjectSprintStates()[0].id,
+        statuses: sprint.statuses || defaultSprintStatuses(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -226,6 +221,13 @@ export const firebaseService = {
       where('projectId', '==', projectId),
       orderBy('createdAt', 'desc')
     );
+    return onSnapshot(q, (snapshot) => {
+      callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sprint)));
+    }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));
+  },
+
+  subscribeAllSprints(callback: (sprints: Sprint[]) => void) {
+    const q = query(collection(db, 'sprints'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sprint)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));

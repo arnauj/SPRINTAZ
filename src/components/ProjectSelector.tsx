@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Project, User } from '../types';
+import { Project, Sprint, SprintState, User } from '../types';
 import { auth } from '../lib/firebase';
 import { Plus, FolderOpen, Folder, Pencil, Trash2, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import ProjectSprintStateEditor from './ProjectSprintStateEditor';
+import { defaultProjectSprintStates } from '../lib/sprintStatuses';
+import { useConfirmDialog } from './ConfirmDialog';
 
 interface ProjectSelectorProps {
   currentUser: User;
@@ -12,15 +15,19 @@ interface ProjectSelectorProps {
 }
 
 export default function ProjectSelector({ currentUser, users, onSelectProject }: ProjectSelectorProps) {
+  const { confirm, confirmDialog } = useConfirmDialog();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectTeam, setNewProjectTeam] = useState('');
+  const [newSprintStates, setNewSprintStates] = useState<SprintState[]>(() => defaultProjectSprintStates());
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editTeam, setEditTeam] = useState('');
+  const [editSprintStates, setEditSprintStates] = useState<SprintState[]>(() => defaultProjectSprintStates());
 
   const isOwnerEmail = auth.currentUser?.email?.toLowerCase() === 'juanrael@gmail.com';
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
@@ -46,6 +53,31 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
     return () => unsubscribe();
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = firebaseService.subscribeAllSprints(setSprints);
+    return () => unsubscribe();
+  }, []);
+
+  const sprintCountsByProject = useMemo(() => {
+    return sprints.reduce<Record<string, number>>((counts, sprint) => {
+      if (!sprint.projectId) return counts;
+      counts[sprint.projectId] = (counts[sprint.projectId] || 0) + 1;
+      return counts;
+    }, {});
+  }, [sprints]);
+
+  const sanitizeSprintStates = (states: Project['sprintStates']) => {
+    const sanitized = (states || [])
+      .filter(state => state.name && state.name.trim().length > 0)
+      .map((state, order) => ({
+        id: state.id,
+        name: state.name.trim(),
+        color: state.color || 'slate',
+        order,
+      }));
+    return sanitized.length > 0 ? sanitized : defaultProjectSprintStates();
+  };
+
   const visibleProjects = useMemo(() => {
     if (isAdmin) return projects;
     return projects.filter((p) => p.team && userTeams.includes(p.team));
@@ -59,12 +91,14 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
       name: newProjectName.trim(),
       description: newProjectDescription.trim() || undefined,
       team: newProjectTeam.trim(),
+      sprintStates: sanitizeSprintStates(newSprintStates),
       createdBy: auth.currentUser?.uid || '',
     });
 
     setNewProjectName('');
     setNewProjectDescription('');
     setNewProjectTeam('');
+    setNewSprintStates(defaultProjectSprintStates());
     setShowCreateModal(false);
   };
 
@@ -72,6 +106,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
     setNewProjectName('');
     setNewProjectDescription('');
     setNewProjectTeam(userTeams[0] || '');
+    setNewSprintStates(defaultProjectSprintStates());
     setShowCreateModal(true);
   };
 
@@ -80,6 +115,11 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
     setEditName(project.name);
     setEditDescription(project.description || '');
     setEditTeam(project.team || '');
+    setEditSprintStates(
+      project.sprintStates && project.sprintStates.length > 0
+        ? project.sprintStates
+        : defaultProjectSprintStates()
+    );
   };
 
   const cancelEditProject = () => {
@@ -87,6 +127,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
     setEditName('');
     setEditDescription('');
     setEditTeam('');
+    setEditSprintStates(defaultProjectSprintStates());
   };
 
   const handleSaveEditProject = async (e: React.FormEvent) => {
@@ -97,18 +138,19 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
       name: editName.trim(),
       description: editDescription.trim() || undefined,
       team: editTeam.trim(),
+      sprintStates: sanitizeSprintStates(editSprintStates),
     });
 
     cancelEditProject();
   };
 
   const handleDeleteProject = async (project: Project) => {
-    if (
-      !confirm(
-        `¿Eliminar el proyecto "${project.name}"? Los sprints asociados quedarán huérfanos.`
-      )
-    )
-      return;
+    const confirmed = await confirm({
+      title: 'Eliminar proyecto',
+      message: `¿Eliminar el proyecto "${project.name}"? Los sprints asociados quedarán huérfanos.`,
+      confirmLabel: 'Eliminar',
+    });
+    if (!confirmed) return;
     await firebaseService.deleteProject(project.id);
   };
 
@@ -159,6 +201,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
   );
 
   return (
+    <>
     <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center p-6">
       <div className="max-w-2xl w-full">
         <motion.div
@@ -191,7 +234,12 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                   className="w-full p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all text-left rounded-xl cursor-pointer"
                 >
                   <div className="flex items-start gap-3">
-                    <Folder className="w-6 h-6 text-amber-500 shrink-0 mt-1 group-hover:scale-110 transition-transform" />
+                    <div className="relative shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
+                      <Folder className="w-7 h-7 text-amber-500" />
+                      <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-bento-ink px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+                        {sprintCountsByProject[project.id] || 0}
+                      </span>
+                    </div>
                     <div className="min-w-0 flex-1 pr-16">
                       <h3 className="font-bold text-bento-ink truncate text-lg">
                         {project.name}
@@ -274,7 +322,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
+              className="bg-white border border-bento-border p-6 w-full max-w-md shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Crear Proyecto</h3>
               <form onSubmit={handleCreateProject} className="space-y-4">
@@ -308,6 +356,10 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                     onChange={(e) => setNewProjectDescription(e.target.value)}
                   />
                 </div>
+                <ProjectSprintStateEditor
+                  value={newSprintStates}
+                  onChange={setNewSprintStates}
+                />
                 <div className="flex gap-3 pt-3 border-t border-bento-border">
                   <button
                     type="button"
@@ -336,7 +388,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
               initial={{ scale: 0.96, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.96, opacity: 0 }}
-              className="bg-white border border-bento-border p-6 w-full max-w-sm shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
+              className="bg-white border border-bento-border p-6 w-full max-w-md shadow-xl max-h-[92vh] overflow-y-auto custom-scrollbar"
             >
               <h3 className="text-lg font-bold mb-4 text-bento-ink">Editar Proyecto</h3>
               <form onSubmit={handleSaveEditProject} className="space-y-4">
@@ -370,6 +422,10 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                     onChange={(e) => setEditDescription(e.target.value)}
                   />
                 </div>
+                <ProjectSprintStateEditor
+                  value={editSprintStates}
+                  onChange={setEditSprintStates}
+                />
                 <div className="flex gap-3 pt-3 border-t border-bento-border">
                   <button
                     type="button"
@@ -391,5 +447,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
         )}
       </AnimatePresence>
     </div>
+    {confirmDialog}
+    </>
   );
 }

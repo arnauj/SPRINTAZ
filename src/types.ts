@@ -13,6 +13,7 @@ export interface Project {
   id: string;
   name: string;
   description?: string;
+  team?: string;
   sprintStates?: SprintState[];
   createdBy: string;
   createdAt: any;
@@ -42,6 +43,9 @@ export interface Sprint {
   startDate?: string;
   endDate?: string;
   isActive: boolean;
+  isClosed?: boolean;
+  closedAt?: any;
+  closedBy?: string;
   stateId?: string;
   statuses?: SprintStatus[];
   createdBy: string;

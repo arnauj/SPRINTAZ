@@ -57,14 +57,20 @@ service cloud.firestore {
     // --- Projects ---
     function isValidProject(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
-        && data.createdBy == request.auth.uid
+        && (!('team' in data) || (data.team is string && data.team.size() <= 100))
         && (!('sprintStates' in data) || data.sprintStates is list);
     }
 
     match /projects/{projectId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidProject(request.resource.data) && request.resource.data.get('createdAt', null) != null;
-      allow update: if (isOwner(resource.data.createdBy) || isAdmin()) && isValidProject(request.resource.data) && request.resource.data.get('updatedAt', null) != null;
+      allow create: if isSignedIn()
+        && isValidProject(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('createdAt', null) != null;
+      allow update: if (isOwner(resource.data.createdBy) || isAdmin())
+        && isValidProject(request.resource.data)
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.get('updatedAt', null) != null;
       allow delete: if isOwner(resource.data.createdBy) || isAdmin();
     }
 
@@ -72,22 +78,37 @@ service cloud.firestore {
     function isValidSprint(data) {
       return data.name is string && data.name.size() > 0 && data.name.size() <= 100
         && data.projectId is string && data.projectId.size() > 0
-        && data.createdBy == request.auth.uid
         && (!('stateId' in data) || (data.stateId is string && data.stateId.size() > 0 && data.stateId.size() <= 128))
         && (!('team' in data) || (data.team is string && data.team.size() <= 100));
     }
 
+    function sprintIsClosed(sprintId) {
+      return exists(/databases/$(database)/documents/sprints/$(sprintId))
+        && get(/databases/$(database)/documents/sprints/$(sprintId)).data.get('isClosed', false) == true;
+    }
+
     match /sprints/{sprintId} {
       allow read: if isSignedIn();
-      allow create: if isTeacher() && isValidSprint(request.resource.data) && request.resource.data.get('createdAt', null) != null;
-      allow update: if isTeacher() && request.resource.data.get('updatedAt', null) != null && (
-        // Standard update with full validation
-        (isValidSprint(request.resource.data)) ||
-        // Migration: Adding projectId to existing sprint without projectId
-        (resource.data.projectId == null && request.resource.data.projectId is string &&
-         request.resource.data.name == resource.data.name &&
-         request.resource.data.createdBy == resource.data.createdBy)
-      );
+      allow create: if isTeacher()
+        && isValidSprint(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.get('createdAt', null) != null
+        && request.resource.data.get('isClosed', false) == false;
+      // Reopening a closed sprint (isClosed transitioning from true to false) is admin-only.
+      // Closing or any other update can be done by teachers.
+      allow update: if request.resource.data.get('updatedAt', null) != null
+        && (
+          isAdmin() ||
+          (isTeacher() && resource.data.get('isClosed', false) == false)
+        )
+        && (
+          // Standard update with full validation; createdBy must not change
+          (isValidSprint(request.resource.data) && request.resource.data.createdBy == resource.data.createdBy) ||
+          // Migration: Adding projectId to existing sprint without projectId
+          (resource.data.projectId == null && request.resource.data.projectId is string &&
+           request.resource.data.name == resource.data.name &&
+           request.resource.data.createdBy == resource.data.createdBy)
+        );
       allow delete: if isTeacher();
     }
 
@@ -104,8 +125,12 @@ service cloud.firestore {
 
     match /tasks/{taskId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('createdAt', null) != null;
-      allow update: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('updatedAt', null) != null && (
+      // Block task writes on closed sprints — closed sprints are frozen records.
+      allow create: if isSignedIn()
+        && isValidTask(request.resource.data)
+        && request.resource.data.get('createdAt', null) != null
+        && !sprintIsClosed(request.resource.data.sprintId);
+      allow update: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('updatedAt', null) != null && !sprintIsClosed(resource.data.sprintId) && (
         // Action: Assign Task
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedTo', 'status', 'updatedAt']) && request.resource.data.status == 'in_progress' && (request.resource.data.assignedTo == request.auth.uid || isTeacher())) ||
         // Action: Finalize Task
@@ -117,7 +142,8 @@ service cloud.firestore {
         // Action: Add/Remove Comments only (any signed-in user — kept for non-creator collaborators)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'updatedAt']))
       );
-      allow delete: if isTeacher() || resource.data.createdBy == request.auth.uid;
+      allow delete: if (isTeacher() || resource.data.createdBy == request.auth.uid)
+        && !sprintIsClosed(resource.data.sprintId);
     }
 
     // --- Notifications ---

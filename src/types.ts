@@ -35,6 +35,9 @@ export interface Sprint {
   startDate?: string;
   endDate?: string;
   isActive: boolean;
+  isClosed?: boolean;
+  closedAt?: any;
+  closedBy?: string;
   statuses?: SprintStatus[];
   createdBy: string;
   createdAt: any;

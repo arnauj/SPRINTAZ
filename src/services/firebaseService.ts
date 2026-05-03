@@ -250,6 +250,32 @@ export const firebaseService = {
     }
   },
 
+  async closeSprint(sprintId: string, userId: string) {
+    try {
+      await updateDoc(doc(db, 'sprints', sprintId), {
+        isClosed: true,
+        closedAt: serverTimestamp(),
+        closedBy: userId,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `sprints/${sprintId}`);
+    }
+  },
+
+  async reopenSprint(sprintId: string) {
+    try {
+      await updateDoc(doc(db, 'sprints', sprintId), {
+        isClosed: false,
+        closedAt: null,
+        closedBy: null,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `sprints/${sprintId}`);
+    }
+  },
+
   // --- Tasks ---
   async createTask(task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) {
     try {

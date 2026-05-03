@@ -46,6 +46,25 @@
   }
 }
 
+/* Respect device safe areas (iOS notch/home-indicator) when running as a PWA
+   with `apple-mobile-web-app-status-bar-style: black-translucent`, which lets
+   content render under the status bar. */
+.app-shell {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    padding-top: max(1.25rem, env(safe-area-inset-top));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+  }
+}
+
 .font-hand {
   font-family: var(--font-hand);
   letter-spacing: 0.01em;

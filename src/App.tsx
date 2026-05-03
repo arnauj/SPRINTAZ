@@ -290,7 +290,15 @@ export default function App() {
     const isSignup = authMode === 'signup';
     const isEmailMode = authMode === 'signin' || authMode === 'signup';
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-bento-bg text-bento-ink p-6 text-center">
+      <div
+        className="flex flex-col items-center justify-center min-h-screen bg-bento-bg text-bento-ink text-center"
+        style={{
+          paddingTop: 'max(1.5rem, env(safe-area-inset-top))',
+          paddingRight: 'max(1.5rem, env(safe-area-inset-right))',
+          paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))',
+          paddingLeft: 'max(1.5rem, env(safe-area-inset-left))',
+        }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -460,7 +468,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden p-3 md:p-5 gap-3 md:gap-4 flex-col">
+    <div className="app-shell flex h-screen bg-bento-bg text-bento-ink font-sans overflow-hidden gap-3 md:gap-4 flex-col">
       <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button

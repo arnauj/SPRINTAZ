@@ -10,6 +10,9 @@ import {
   ChevronLeft,
   Layers,
   FolderOpen,
+  Lock,
+  Unlock,
+  CheckCircle2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SprintStatusEditor from './SprintStatusEditor';
@@ -183,6 +186,66 @@ export default function SprintList({
     await firebaseService.deleteSprint(sprint.id);
   };
 
+  const handleCloseSprint = async (sprint: Sprint) => {
+    if (
+      !confirm(
+        `¿Cerrar el sprint "${sprint.name}"? No se podrán añadir ni mover tareas. Solo un administrador podrá reabrirlo.`
+      )
+    )
+      return;
+    await firebaseService.closeSprint(sprint.id, auth.currentUser?.uid || '');
+  };
+
+  const handleReopenSprint = async (sprint: Sprint) => {
+    if (!confirm(`¿Reabrir el sprint "${sprint.name}"?`)) return;
+    await firebaseService.reopenSprint(sprint.id);
+  };
+
+  const sortedSprints = useMemo(() => {
+    const closeTime = (s: Sprint) => {
+      const t = s.closedAt;
+      if (!t) return 0;
+      if (typeof t.toMillis === 'function') return t.toMillis();
+      if (typeof t.seconds === 'number') return t.seconds * 1000;
+      return 0;
+    };
+    return [...sprints].sort((a, b) => {
+      const ca = a.isClosed ? 1 : 0;
+      const cb = b.isClosed ? 1 : 0;
+      if (ca !== cb) return ca - cb; // open first
+      if (a.isClosed && b.isClosed) return closeTime(b) - closeTime(a); // most recently closed first
+      return 0; // preserve Firestore order (createdAt desc) for open
+    });
+  }, [sprints]);
+
+  const formatClosedAt = (closedAt: any): string => {
+    if (!closedAt) return '';
+    let d: Date | null = null;
+    if (typeof closedAt.toDate === 'function') d = closedAt.toDate();
+    else if (typeof closedAt.seconds === 'number') d = new Date(closedAt.seconds * 1000);
+    else if (typeof closedAt === 'string' || typeof closedAt === 'number') d = new Date(closedAt);
+    if (!d || isNaN(d.getTime())) return '';
+    return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`;
+  };
+
+  const summarizeTasks = (tasks: Task[], statuses: SprintStatus[]) => {
+    const flat = flattenStatuses(statuses);
+    const doneIds = new Set<string>();
+    flat.forEach((s) => {
+      const name = (s.name || '').toLowerCase();
+      if (s.id === 'done' || name === 'done' || name.includes('hecho') || name.includes('completad') || name.includes('finalizad') || name.includes('desplegad')) {
+        doneIds.add(s.id);
+      }
+    });
+    const total = tasks.length;
+    const done = tasks.filter((t) => doneIds.has(t.status)).length;
+    const totalWeight = tasks.reduce((acc, t) => acc + (t.weight || 0), 0);
+    const doneWeight = tasks
+      .filter((t) => doneIds.has(t.status))
+      .reduce((acc, t) => acc + (t.weight || 0), 0);
+    return { total, done, totalWeight, doneWeight };
+  };
+
   return (
     <div className="h-full bg-white/70 border border-bento-border flex flex-col p-4 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-5 md:mb-6 gap-3 shrink-0">
@@ -252,78 +315,154 @@ export default function SprintList({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {sprints.map((sprint) => (
-              <motion.div
-                key={sprint.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                onClick={() => onSelectSprint(sprint)}
-                className="group p-4 md:p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all rounded-xl cursor-pointer relative"
-              >
-                <div className={`flex items-start gap-2 mb-3 min-w-0 ${canManageSprints ? 'pr-20' : ''}`}>
-                  {sprint.isActive && (
-                    <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
-                      Activo
-                    </span>
-                  )}
-                  <h3 className="font-bold text-bento-ink text-base md:text-lg leading-tight break-words min-w-0">
-                    {sprint.name}
-                  </h3>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {flattenStatuses(sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses()).map(status => {
-                    const palette = colorForStatus(status.color);
-                    const count = (tasksBySprintId[sprint.id] || []).filter(task => task.status === status.id).length;
-                    return (
-                      <span
-                        key={status.id}
-                        className="inline-flex items-center gap-1.5 max-w-full rounded-full border px-2 py-1 text-[10px] font-bold leading-none"
-                        style={{
-                          backgroundColor: palette.tintSoft,
-                          borderColor: palette.tint,
-                          color: palette.ink,
-                        }}
-                        title={`${status.name}: ${count} tareas`}
-                      >
-                        <span className="truncate">{status.name}</span>
-                        <span
-                          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] text-white"
-                          style={{ backgroundColor: palette.countDot }}
-                        >
-                          {count}
-                        </span>
+            {sortedSprints.map((sprint) => {
+              const sprintStatuses = sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses();
+              const sprintTasks = tasksBySprintId[sprint.id] || [];
+              const closed = !!sprint.isClosed;
+              const summary = closed ? summarizeTasks(sprintTasks, sprintStatuses) : null;
+              const closedAtStr = closed ? formatClosedAt(sprint.closedAt) : '';
+              const actionCount = canManageSprints ? (closed ? (isAdmin ? 2 : 1) : 3) : 0;
+              return (
+                <motion.div
+                  key={sprint.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => onSelectSprint(sprint)}
+                  className={`group p-4 md:p-5 border-2 transition-all rounded-xl cursor-pointer relative ${
+                    closed
+                      ? 'bg-slate-50 border-slate-200 hover:border-slate-400 hover:bg-slate-100/70'
+                      : 'bg-white border-bento-border hover:border-amber-400 hover:bg-amber-50/30'
+                  }`}
+                >
+                  <div
+                    className="flex items-start gap-2 mb-3 min-w-0"
+                    style={{ paddingRight: actionCount > 0 ? `${actionCount * 36 + 8}px` : undefined }}
+                  >
+                    {closed ? (
+                      <span className="mt-0.5 text-[9px] bg-slate-500 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0 inline-flex items-center gap-1">
+                        <Lock className="w-2.5 h-2.5" />
+                        Cerrado
                       </span>
-                    );
-                  })}
-                </div>
-                {canManageSprints && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditSprint(sprint);
-                      }}
-                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
-                      title="Editar sprint"
-                      aria-label="Editar sprint"
+                    ) : (
+                      sprint.isActive && (
+                        <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
+                          Activo
+                        </span>
+                      )
+                    )}
+                    <h3
+                      className={`font-bold text-base md:text-lg leading-tight break-words min-w-0 ${
+                        closed ? 'text-bento-mute' : 'text-bento-ink'
+                      }`}
                     >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSprint(sprint);
-                      }}
-                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Eliminar sprint"
-                      aria-label="Eliminar sprint"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      {sprint.name}
+                    </h3>
                   </div>
-                )}
-              </motion.div>
-            ))}
+                  {closed && summary ? (
+                    <div className="space-y-2">
+                      {closedAtStr && (
+                        <p className="text-[10px] uppercase font-bold tracking-widest text-bento-mute">
+                          Cerrado el {closedAtStr}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 text-xs text-bento-ink/80">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                        <span className="font-semibold">
+                          {summary.done} de {summary.total} {summary.total === 1 ? 'tarea completada' : 'tareas completadas'}
+                        </span>
+                      </div>
+                      {summary.totalWeight > 0 && (
+                        <p className="text-[11px] text-bento-mute">
+                          {summary.doneWeight} / {summary.totalWeight} pts realizados
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {flattenStatuses(sprintStatuses).map(status => {
+                        const palette = colorForStatus(status.color);
+                        const count = sprintTasks.filter(task => task.status === status.id).length;
+                        return (
+                          <span
+                            key={status.id}
+                            className="inline-flex items-center gap-1.5 max-w-full rounded-full border px-2 py-1 text-[10px] font-bold leading-none"
+                            style={{
+                              backgroundColor: palette.tintSoft,
+                              borderColor: palette.tint,
+                              color: palette.ink,
+                            }}
+                            title={`${status.name}: ${count} tareas`}
+                          >
+                            <span className="truncate">{status.name}</span>
+                            <span
+                              className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] text-white"
+                              style={{ backgroundColor: palette.countDot }}
+                            >
+                              {count}
+                            </span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {canManageSprints && (
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      {closed ? (
+                        isAdmin && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReopenSprint(sprint);
+                            }}
+                            className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-emerald-100 rounded text-bento-mute hover:text-emerald-700 transition-colors cursor-pointer"
+                            title="Reabrir sprint"
+                            aria-label="Reabrir sprint"
+                          >
+                            <Unlock className="w-3.5 h-3.5" />
+                          </button>
+                        )
+                      ) : (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCloseSprint(sprint);
+                            }}
+                            className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-slate-200 rounded text-bento-mute hover:text-slate-700 transition-colors cursor-pointer"
+                            title="Cerrar sprint"
+                            aria-label="Cerrar sprint"
+                          >
+                            <Lock className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startEditSprint(sprint);
+                            }}
+                            className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
+                            title="Editar sprint"
+                            aria-label="Editar sprint"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteSprint(sprint);
+                        }}
+                        className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+                        title="Eliminar sprint"
+                        aria-label="Eliminar sprint"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         )}
       </div>

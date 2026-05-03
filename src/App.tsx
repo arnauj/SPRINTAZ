@@ -1,9 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import {
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
-  signOut
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
+  signOut,
+  type AuthError
 } from 'firebase/auth';
 import { auth } from './lib/firebase';
 import { firebaseService } from './services/firebaseService';
@@ -14,7 +21,11 @@ import {
   Shield,
   Send,
   ChevronRight,
-  FolderOpen
+  FolderOpen,
+  Mail,
+  Lock,
+  UserPlus,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -27,6 +38,42 @@ import AdminUsersPanel from './components/AdminUsersPanel';
 import SendMessageModal from './components/SendMessageModal';
 import ProjectSelector from './components/ProjectSelector';
 
+type AuthMode = 'choose' | 'signin' | 'signup';
+
+function isMobileOrStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    // iOS Safari home-screen install
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return isMobileUA || isStandalone;
+}
+
+function authErrorMessage(err: unknown): string {
+  const code = (err as AuthError)?.code || '';
+  switch (code) {
+    case 'auth/invalid-email': return 'Email no válido.';
+    case 'auth/missing-password': return 'Introduce una contraseña.';
+    case 'auth/weak-password': return 'La contraseña debe tener al menos 6 caracteres.';
+    case 'auth/email-already-in-use': return 'Ese email ya está registrado. Inicia sesión.';
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+      return 'Email o contraseña incorrectos.';
+    case 'auth/too-many-requests': return 'Demasiados intentos. Prueba más tarde.';
+    case 'auth/network-request-failed': return 'Sin conexión. Revisa tu red.';
+    case 'auth/popup-blocked':
+    case 'auth/popup-closed-by-user':
+      return 'El popup fue bloqueado. Reintentando con redirección…';
+    case 'auth/operation-not-allowed':
+      return 'Este método de inicio de sesión no está habilitado en Firebase.';
+    default:
+      return (err as Error)?.message || 'No se pudo completar la operación.';
+  }
+}
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,7 +83,23 @@ export default function App() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [showSendMessage, setShowSendMessage] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>('choose');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authInfo, setAuthInfo] = useState<string | null>(null);
+  const [emailValue, setEmailValue] = useState('');
+  const [passwordValue, setPasswordValue] = useState('');
+  const [nameValue, setNameValue] = useState('');
   const didAutoSelectProject = useRef(false);
+
+  useEffect(() => {
+    // If we returned from a redirect-based sign-in (mobile/PWA flow),
+    // surface the error if any so the user isn't left on a stale screen.
+    getRedirectResult(auth).catch((err) => {
+      console.error('Redirect sign-in failed', err);
+      setAuthError(authErrorMessage(err));
+    });
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -113,12 +176,91 @@ export default function App() {
     }
   }, [user]);
 
-  const handleLogin = async () => {
+  const handleGoogleLogin = async () => {
+    setAuthError(null);
+    setAuthInfo(null);
+    setAuthBusy(true);
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
     try {
+      if (isMobileOrStandalone()) {
+        // Popups are blocked or unreliable on mobile browsers and installed
+        // PWAs; redirect is the supported flow there.
+        await signInWithRedirect(auth, provider);
+        return;
+      }
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Login failed", error);
+      const code = (error as AuthError)?.code;
+      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        try {
+          await signInWithRedirect(auth, provider);
+          return;
+        } catch (redirectErr) {
+          console.error('Google sign-in redirect failed', redirectErr);
+          setAuthError(authErrorMessage(redirectErr));
+        }
+      } else {
+        console.error('Google sign-in failed', error);
+        setAuthError(authErrorMessage(error));
+      }
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleEmailSignIn = async (e: FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthInfo(null);
+    setAuthBusy(true);
+    try {
+      await signInWithEmailAndPassword(auth, emailValue.trim(), passwordValue);
+      setPasswordValue('');
+    } catch (error) {
+      console.error('Email sign-in failed', error);
+      setAuthError(authErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleEmailSignUp = async (e: FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setAuthInfo(null);
+    setAuthBusy(true);
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, emailValue.trim(), passwordValue);
+      const displayName = nameValue.trim();
+      if (displayName && cred.user) {
+        await updateProfile(cred.user, { displayName }).catch(() => { /* non-fatal */ });
+      }
+      setPasswordValue('');
+    } catch (error) {
+      console.error('Email sign-up failed', error);
+      setAuthError(authErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!emailValue.trim()) {
+      setAuthError('Introduce tu email para enviarte el enlace de recuperación.');
+      return;
+    }
+    setAuthError(null);
+    setAuthInfo(null);
+    setAuthBusy(true);
+    try {
+      await sendPasswordResetEmail(auth, emailValue.trim());
+      setAuthInfo('Te hemos enviado un email para restablecer la contraseña.');
+    } catch (error) {
+      console.error('Password reset failed', error);
+      setAuthError(authErrorMessage(error));
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -135,25 +277,173 @@ export default function App() {
   }
 
   if (!user) {
+    const isSignup = authMode === 'signup';
+    const isEmailMode = authMode === 'signin' || authMode === 'signup';
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-bento-bg text-bento-ink p-6 text-center">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-bento-bg text-bento-ink p-6 text-center">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full space-y-8"
+          className="max-w-md w-full space-y-6"
         >
-          <div className="space-y-4">
-            <Layers className="w-16 h-16 mx-auto text-amber-500" />
-            <h1 className="text-4xl font-bold tracking-tight">SPRINTAZ</h1>
-            <p className="text-bento-mute">Gestiona tus proyectos, sprints y tareas de forma ágil y colaborativa.</p>
+          <div className="space-y-3">
+            <Layers className="w-14 h-14 mx-auto text-amber-500" />
+            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">SPRINTAZ</h1>
+            <p className="text-bento-mute text-sm md:text-base">Gestiona tus proyectos, sprints y tareas de forma ágil y colaborativa.</p>
           </div>
-          <button
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-bento-ink text-white font-medium py-3 px-4 rounded-xl hover:bg-black transition-colors cursor-pointer shadow-md"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-            Continuar con Google
-          </button>
+
+          {authError && (
+            <div className="text-left text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2">
+              {authError}
+            </div>
+          )}
+          {authInfo && (
+            <div className="text-left text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-3 py-2">
+              {authInfo}
+            </div>
+          )}
+
+          {!isEmailMode ? (
+            <div className="space-y-3">
+              <button
+                onClick={handleGoogleLogin}
+                disabled={authBusy}
+                className="w-full flex items-center justify-center gap-3 bg-bento-ink text-white font-medium py-3 px-4 rounded-xl hover:bg-black transition-colors cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-wait"
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5 bg-white rounded" alt="Google" />
+                Continuar con Google
+              </button>
+
+              <div className="flex items-center gap-3 text-bento-mute text-xs uppercase tracking-widest">
+                <div className="h-px bg-bento-border flex-1" />
+                <span>o</span>
+                <div className="h-px bg-bento-border flex-1" />
+              </div>
+
+              <button
+                onClick={() => { setAuthError(null); setAuthInfo(null); setAuthMode('signin'); }}
+                className="w-full flex items-center justify-center gap-3 bg-white border border-bento-border text-bento-ink font-medium py-3 px-4 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <Mail className="w-5 h-5" />
+                Continuar con Email
+              </button>
+
+              <p className="text-[11px] text-bento-mute pt-2">
+                ¿Aún no tienes cuenta?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setAuthError(null); setAuthInfo(null); setAuthMode('signup'); }}
+                  className="text-amber-700 font-semibold hover:underline cursor-pointer"
+                >
+                  Regístrate
+                </button>
+              </p>
+            </div>
+          ) : (
+            <form
+              onSubmit={isSignup ? handleEmailSignUp : handleEmailSignIn}
+              className="space-y-3 text-left"
+            >
+              {isSignup && (
+                <label className="block">
+                  <span className="text-xs font-semibold text-bento-mute uppercase tracking-wider">Nombre</span>
+                  <div className="mt-1 relative">
+                    <UserPlus className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-bento-mute" />
+                    <input
+                      type="text"
+                      autoComplete="name"
+                      required
+                      value={nameValue}
+                      onChange={(e) => setNameValue(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-bento-border bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                      placeholder="Tu nombre"
+                    />
+                  </div>
+                </label>
+              )}
+              <label className="block">
+                <span className="text-xs font-semibold text-bento-mute uppercase tracking-wider">Email</span>
+                <div className="mt-1 relative">
+                  <Mail className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-bento-mute" />
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    value={emailValue}
+                    onChange={(e) => setEmailValue(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-bento-border bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="tu@email.com"
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-bento-mute uppercase tracking-wider">Contraseña</span>
+                <div className="mt-1 relative">
+                  <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-bento-mute" />
+                  <input
+                    type="password"
+                    autoComplete={isSignup ? 'new-password' : 'current-password'}
+                    required
+                    minLength={6}
+                    value={passwordValue}
+                    onChange={(e) => setPasswordValue(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-bento-border bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder={isSignup ? 'Mínimo 6 caracteres' : '••••••••'}
+                  />
+                </div>
+              </label>
+
+              <button
+                type="submit"
+                disabled={authBusy}
+                className="w-full bg-bento-ink text-white font-medium py-3 px-4 rounded-xl hover:bg-black transition-colors cursor-pointer shadow-md disabled:opacity-60 disabled:cursor-wait"
+              >
+                {isSignup ? 'Crear cuenta' : 'Iniciar sesión'}
+              </button>
+
+              <div className="flex items-center justify-between text-xs">
+                <button
+                  type="button"
+                  onClick={() => { setAuthError(null); setAuthInfo(null); setAuthMode('choose'); }}
+                  className="flex items-center gap-1 text-bento-mute hover:text-bento-ink cursor-pointer"
+                >
+                  <ArrowLeft className="w-3 h-3" />
+                  Volver
+                </button>
+                {isSignup ? (
+                  <button
+                    type="button"
+                    onClick={() => { setAuthError(null); setAuthInfo(null); setAuthMode('signin'); }}
+                    className="text-amber-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    Ya tengo cuenta
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handlePasswordReset}
+                    disabled={authBusy}
+                    className="text-amber-700 font-semibold hover:underline cursor-pointer disabled:opacity-60"
+                  >
+                    He olvidado la contraseña
+                  </button>
+                )}
+              </div>
+              {!isSignup && (
+                <p className="text-[11px] text-bento-mute text-center pt-1">
+                  ¿Aún no tienes cuenta?{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setAuthError(null); setAuthInfo(null); setAuthMode('signup'); }}
+                    className="text-amber-700 font-semibold hover:underline cursor-pointer"
+                  >
+                    Regístrate
+                  </button>
+                </p>
+              )}
+            </form>
+          )}
         </motion.div>
       </div>
     );

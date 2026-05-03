@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Project, Sprint, SprintState, User } from '../types';
+import { Project, Sprint, SprintState, Task, User } from '../types';
 import { auth } from '../lib/firebase';
-import { Plus, FolderOpen, Folder, Pencil, Trash2, Users as UsersIcon } from 'lucide-react';
+import { Download, Plus, FolderOpen, Folder, Pencil, Trash2, Upload, Users as UsersIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ProjectSprintStateEditor from './ProjectSprintStateEditor';
-import { defaultProjectSprintStates } from '../lib/sprintStatuses';
+import { defaultProjectSprintStates, defaultSprintStatuses } from '../lib/sprintStatuses';
 import { useConfirmDialog } from './ConfirmDialog';
 
 interface ProjectSelectorProps {
@@ -14,11 +14,26 @@ interface ProjectSelectorProps {
   onSelectProject: (project: Project) => void;
 }
 
+interface ProjectExportSprint {
+  sprint: Sprint;
+  tasks: Task[];
+}
+
+interface ProjectExportData {
+  version: 1;
+  exportedAt: string;
+  project: Project;
+  sprints: ProjectExportSprint[];
+}
+
 export default function ProjectSelector({ currentUser, users, onSelectProject }: ProjectSelectorProps) {
   const { confirm, confirmDialog } = useConfirmDialog();
+  const importInputRef = useRef<HTMLInputElement | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importNotice, setImportNotice] = useState<{ title: string; message: string } | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [newProjectTeam, setNewProjectTeam] = useState('');
@@ -157,6 +172,127 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
   const canEditProject = (project: Project) =>
     isAdmin || project.createdBy === auth.currentUser?.uid;
 
+  const downloadJson = (filename: string, data: ProjectExportData) => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const safeFilename = (name: string) =>
+    name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]+/gi, '-')
+      .replace(/^-+|-+$/g, '') || 'proyecto';
+
+  const handleExportProject = async (project: Project) => {
+    const projectSprints = await firebaseService.getSprintsByProject(project.id);
+    const exportedSprints = await Promise.all(
+      projectSprints.map(async (sprint) => ({
+        sprint,
+        tasks: await firebaseService.getTasksBySprint(sprint.id),
+      }))
+    );
+
+    downloadJson(`${safeFilename(project.name)}.sprintaz.json`, {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      project,
+      sprints: exportedSprints,
+    });
+  };
+
+  const sanitizeImportedProject = (project: Partial<Project>) => ({
+    name: `${project.name || 'Proyecto importado'} (importado)`,
+    description: project.description || undefined,
+    team: project.team && project.team.trim() ? project.team.trim() : userTeams[0] || currentUser.name,
+    sprintStates: sanitizeSprintStates(project.sprintStates),
+    createdBy: auth.currentUser?.uid || '',
+  });
+
+  const sanitizeImportedSprint = (sprint: Partial<Sprint>, projectId: string) => ({
+    name: sprint.name || 'Sprint importado',
+    projectId,
+    isActive: sprint.isActive ?? true,
+    isClosed: false,
+    stateId: sprint.stateId || defaultProjectSprintStates()[0].id,
+    statuses: sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses(),
+    createdBy: auth.currentUser?.uid || '',
+  });
+
+  const sanitizeImportedTask = (task: Partial<Task>, sprintId: string) => {
+    const currentUid = auth.currentUser?.uid || '';
+    const status = task.status || 'backlog';
+    const importedTask: Omit<Task, 'id' | 'createdAt' | 'updatedAt'> = {
+      sprintId,
+      name: task.name || 'Tarea importada',
+      description: task.description || '',
+      weight: typeof task.weight === 'number' ? task.weight : 0,
+      status,
+      createdBy: currentUid,
+      comments: task.comments || [],
+      links: task.links || [],
+      emailAlerts: task.emailAlerts || [],
+    };
+    if (task.color) importedTask.color = task.color;
+    if (status === 'in_progress') importedTask.assignedTo = task.assignedTo || currentUid;
+    else if (task.assignedTo) importedTask.assignedTo = task.assignedTo;
+    if (status === 'done') importedTask.finishedBy = task.finishedBy || currentUid;
+    else if (task.finishedBy) importedTask.finishedBy = task.finishedBy;
+    return importedTask;
+  };
+
+  const handleImportProject = async (file: File) => {
+    setIsImporting(true);
+    try {
+      const parsed = JSON.parse(await file.text()) as Partial<ProjectExportData>;
+      if (!parsed.project || !Array.isArray(parsed.sprints)) {
+        throw new Error('El archivo no tiene el formato esperado de SPRINTAZ.');
+      }
+
+      const newProjectId = await firebaseService.createProject(sanitizeImportedProject(parsed.project));
+      if (!newProjectId) throw new Error('No se pudo crear el proyecto importado.');
+
+      let importedTasks = 0;
+      for (const item of parsed.sprints) {
+        const newSprintId = await firebaseService.createSprint(
+          sanitizeImportedSprint(item.sprint || {}, newProjectId)
+        );
+        if (!newSprintId) continue;
+
+        for (const task of item.tasks || []) {
+          await firebaseService.createTask(sanitizeImportedTask(task, newSprintId));
+          importedTasks += 1;
+        }
+      }
+
+      setImportNotice({
+        title: 'Proyecto importado',
+        message: `Se importaron ${parsed.sprints.length} sprints y ${importedTasks} tareas.`,
+      });
+    } catch (error) {
+      setImportNotice({
+        title: 'No se pudo importar',
+        message: error instanceof Error ? error.message : 'El archivo no se pudo leer.',
+      });
+    } finally {
+      setIsImporting(false);
+      if (importInputRef.current) importInputRef.current.value = '';
+    }
+  };
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    handleImportProject(file);
+  };
+
   const renderTeamPicker = (value: string, onChange: (team: string) => void, idSuffix: string) => (
     <>
       <input
@@ -240,7 +376,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                         {sprintCountsByProject[project.id] || 0}
                       </span>
                     </div>
-                    <div className="min-w-0 flex-1 pr-16">
+                    <div className="min-w-0 flex-1 pr-28">
                       <h3 className="font-bold text-bento-ink truncate text-lg">
                         {project.name}
                       </h3>
@@ -260,32 +396,45 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                     </div>
                   </div>
                 </button>
-                {canManageProjects && canEditProject(project) && (
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditProject(project);
-                      }}
-                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
-                      title="Editar proyecto"
-                      aria-label="Editar proyecto"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProject(project);
-                      }}
-                      className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
-                      title="Eliminar proyecto"
-                      aria-label="Eliminar proyecto"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExportProject(project);
+                    }}
+                    className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-sky-100 rounded text-bento-mute hover:text-sky-700 transition-colors cursor-pointer"
+                    title="Exportar proyecto"
+                    aria-label="Exportar proyecto"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                  {canManageProjects && canEditProject(project) && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditProject(project);
+                        }}
+                        className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-amber-100 rounded text-bento-mute hover:text-amber-700 transition-colors cursor-pointer"
+                        title="Editar proyecto"
+                        aria-label="Editar proyecto"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProject(project);
+                        }}
+                        className="p-2 md:p-1.5 bg-white/90 border border-bento-border md:border-transparent hover:bg-rose-100 rounded text-bento-mute hover:text-rose-500 transition-colors cursor-pointer"
+                        title="Eliminar proyecto"
+                        aria-label="Eliminar proyecto"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
               </motion.div>
             ))}
           </div>
@@ -304,6 +453,21 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
 
         {canManageProjects && (
           <div className="flex gap-3 justify-center">
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              onChange={handleImportFileChange}
+              className="hidden"
+            />
+            <button
+              onClick={() => importInputRef.current?.click()}
+              disabled={isImporting}
+              className="flex items-center gap-2 px-6 py-3 bg-white border border-bento-border text-bento-ink font-semibold rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Upload className="w-5 h-5" />
+              {isImporting ? 'Importando...' : 'Importar Proyecto'}
+            </button>
             <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-6 py-3 bg-bento-ink text-white font-semibold rounded-xl hover:bg-black transition-colors cursor-pointer"
@@ -447,6 +611,32 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
         )}
       </AnimatePresence>
     </div>
+    <AnimatePresence>
+      {importNotice && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/35 backdrop-blur-sm">
+          <motion.div
+            initial={{ scale: 0.96, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.96, opacity: 0, y: 12 }}
+            className="w-full max-w-sm bg-white border border-bento-border shadow-xl p-5"
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3 className="text-base font-bold text-bento-ink">{importNotice.title}</h3>
+            <p className="mt-2 text-sm text-bento-mute leading-relaxed">{importNotice.message}</p>
+            <div className="flex justify-end pt-4 mt-4 border-t border-bento-border">
+              <button
+                type="button"
+                onClick={() => setImportNotice(null)}
+                className="px-4 py-2 text-sm font-bold bg-bento-ink text-white hover:bg-black rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+              >
+                Aceptar
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
     {confirmDialog}
     </>
   );

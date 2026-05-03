@@ -40,17 +40,6 @@ import ProjectSelector from './components/ProjectSelector';
 
 type AuthMode = 'choose' | 'signin' | 'signup';
 
-function isMobileOrStandalone(): boolean {
-  if (typeof window === 'undefined') return false;
-  const ua = navigator.userAgent || '';
-  const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
-  const isStandalone =
-    window.matchMedia?.('(display-mode: standalone)').matches ||
-    // iOS Safari home-screen install
-    (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
-  return isMobileUA || isStandalone;
-}
-
 function authErrorMessage(err: unknown): string {
   const code = (err as AuthError)?.code || '';
   switch (code) {
@@ -65,10 +54,11 @@ function authErrorMessage(err: unknown): string {
     case 'auth/too-many-requests': return 'Demasiados intentos. Prueba más tarde.';
     case 'auth/network-request-failed': return 'Sin conexión. Revisa tu red.';
     case 'auth/popup-blocked':
-    case 'auth/popup-closed-by-user':
-      return 'El popup fue bloqueado. Reintentando con redirección…';
+      return 'El navegador bloqueó la ventana emergente. Permite popups e inténtalo de nuevo.';
     case 'auth/operation-not-allowed':
       return 'Este método de inicio de sesión no está habilitado en Firebase.';
+    case 'auth/unauthorized-domain':
+      return 'Este dominio no está autorizado en Firebase Auth.';
     default:
       return (err as Error)?.message || 'No se pudo completar la operación.';
   }
@@ -183,16 +173,17 @@ export default function App() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     try {
-      if (isMobileOrStandalone()) {
-        // Popups are blocked or unreliable on mobile browsers and installed
-        // PWAs; redirect is the supported flow there.
-        await signInWithRedirect(auth, provider);
-        return;
-      }
+      // Popup is the documented flow for self-hosted apps (GitHub Pages).
+      // signInWithRedirect requires third-party cookies on the firebaseapp.com
+      // authDomain, which Safari and most Chromium browsers block by default,
+      // so the redirect would silently lose the session. Use popup everywhere
+      // and only fall back to redirect if the popup is actively blocked.
       await signInWithPopup(auth, provider);
     } catch (error) {
       const code = (error as AuthError)?.code;
-      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        // User dismissed the popup — silent.
+      } else if (code === 'auth/popup-blocked') {
         try {
           await signInWithRedirect(auth, provider);
           return;

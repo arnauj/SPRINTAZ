@@ -226,6 +226,21 @@ export const firebaseService = {
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'sprints'));
   },
 
+  async getSprintsByProject(projectId: string): Promise<Sprint[]> {
+    try {
+      const q = query(
+        collection(db, 'sprints'),
+        where('projectId', '==', projectId),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sprint));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, `sprints?projectId=${projectId}`);
+      return [];
+    }
+  },
+
   subscribeAllSprints(callback: (sprints: Sprint[]) => void) {
     const q = query(collection(db, 'sprints'), orderBy('createdAt', 'desc'));
     return onSnapshot(q, (snapshot) => {
@@ -320,6 +335,21 @@ export const firebaseService = {
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'tasks'));
+  },
+
+  async getTasksBySprint(sprintId: string): Promise<Task[]> {
+    try {
+      const q = query(
+        collection(db, 'tasks'),
+        where('sprintId', '==', sprintId),
+        orderBy('createdAt', 'asc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Task));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.LIST, `tasks?sprintId=${sprintId}`);
+      return [];
+    }
   },
 
   // --- Notifications ---

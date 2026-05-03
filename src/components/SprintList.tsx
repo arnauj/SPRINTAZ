@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Sprint, SprintStatus, User, Project } from '../types';
+import { Sprint, SprintStatus, Task, User, Project } from '../types';
 import { auth } from '../lib/firebase';
 import {
   Plus,
@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SprintStatusEditor from './SprintStatusEditor';
-import { defaultSprintStatuses } from '../lib/sprintStatuses';
+import { colorForStatus, defaultSprintStatuses, flattenStatuses } from '../lib/sprintStatuses';
 
 interface SprintListProps {
   project: Project;
@@ -38,6 +38,7 @@ export default function SprintList({
   const [editName, setEditName] = useState('');
   const [editTeam, setEditTeam] = useState('');
   const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
+  const [tasksBySprintId, setTasksBySprintId] = useState<Record<string, Task[]>>({});
 
   const userTeams = useMemo(
     () =>
@@ -68,6 +69,33 @@ export default function SprintList({
     if (isAdmin) return sprints;
     return sprints.filter((s) => !s.team || userTeams.includes(s.team));
   }, [sprints, userTeams, isAdmin]);
+
+  useEffect(() => {
+    if (visibleSprints.length === 0) {
+      setTasksBySprintId({});
+      return;
+    }
+
+    const visibleSprintIds = visibleSprints.map(sprint => sprint.id);
+    setTasksBySprintId(prev => {
+      const next: Record<string, Task[]> = {};
+      visibleSprintIds.forEach((id: string) => {
+        next[id] = prev[id] || [];
+      });
+      return next;
+    });
+
+    const unsubscribes = visibleSprints.map(sprint =>
+      firebaseService.subscribeTasks(sprint.id, tasks => {
+        setTasksBySprintId(prev => ({
+          ...prev,
+          [sprint.id]: tasks,
+        }));
+      })
+    );
+
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [visibleSprints]);
 
   const handleOpenCreate = () => {
     setNewSprintName('');
@@ -245,10 +273,17 @@ export default function SprintList({
                 onClick={() => onSelectSprint(sprint)}
                 className="group p-4 md:p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all rounded-xl cursor-pointer relative"
               >
-                <h3 className={`font-bold text-bento-ink text-base md:text-lg leading-tight break-words mb-1 ${canManageSprints ? 'pr-20' : ''}`}>
-                  {sprint.name}
-                </h3>
-                <div className="flex items-center gap-2 min-w-0">
+                <div className={`flex items-start gap-2 mb-2 min-w-0 ${canManageSprints ? 'pr-20' : ''}`}>
+                  {sprint.isActive && (
+                    <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
+                      Activo
+                    </span>
+                  )}
+                  <h3 className="font-bold text-bento-ink text-base md:text-lg leading-tight break-words min-w-0">
+                    {sprint.name}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2 min-w-0 mb-3">
                   {sprint.team ? (
                     <p className="text-xs text-bento-mute flex items-center gap-1 truncate min-w-0">
                       <UsersIcon className="w-3 h-3 shrink-0" />
@@ -257,11 +292,32 @@ export default function SprintList({
                   ) : (
                     <p className="text-xs text-bento-mute italic">Sin equipo</p>
                   )}
-                  {sprint.isActive && (
-                    <span className="text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
-                      Activo
-                    </span>
-                  )}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {flattenStatuses(sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses()).map(status => {
+                    const palette = colorForStatus(status.color);
+                    const count = (tasksBySprintId[sprint.id] || []).filter(task => task.status === status.id).length;
+                    return (
+                      <span
+                        key={status.id}
+                        className="inline-flex items-center gap-1.5 max-w-full rounded-full border px-2 py-1 text-[10px] font-bold leading-none"
+                        style={{
+                          backgroundColor: palette.tintSoft,
+                          borderColor: palette.tint,
+                          color: palette.ink,
+                        }}
+                        title={`${status.name}: ${count} tareas`}
+                      >
+                        <span className="truncate">{status.name}</span>
+                        <span
+                          className="flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] text-white"
+                          style={{ backgroundColor: palette.countDot }}
+                        >
+                          {count}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </div>
                 {canManageSprints && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">

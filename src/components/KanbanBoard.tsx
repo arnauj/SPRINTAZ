@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { Task, Sprint, User, TaskStatus, SprintStatus } from '../types';
+import { Task, Sprint, User, TaskStatus, SprintStatus, Project } from '../types';
 import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell, CornerDownRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
@@ -8,6 +8,7 @@ import { flattenStatuses, colorForStatus, defaultSprintStatuses } from '../lib/s
 
 interface KanbanBoardProps {
   sprint: Sprint;
+  project: Project;
   currentUser: User;
   users: User[];
   onBack?: () => void;
@@ -52,7 +53,7 @@ function daysUntil(end?: string): number | null {
   return diff;
 }
 
-export default function KanbanBoard({ sprint, currentUser, users, onBack }: KanbanBoardProps) {
+export default function KanbanBoard({ sprint, project, currentUser, users, onBack }: KanbanBoardProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
@@ -110,11 +111,12 @@ export default function KanbanBoard({ sprint, currentUser, users, onBack }: Kanb
     await firebaseService.updateTask(task.id, updates);
 
     const recipients = new Set<string>();
-    if (sprint.team) {
+    const projectTeam = project.team;
+    if (projectTeam) {
       users.forEach(u => {
         if (u.uid === currentUser.uid) return;
         const uTeams = u.teams && u.teams.length > 0 ? u.teams : [u.name];
-        if (uTeams.includes(sprint.team!)) recipients.add(u.uid);
+        if (uTeams.includes(projectTeam)) recipients.add(u.uid);
       });
     }
     if (task.createdBy && task.createdBy !== currentUser.uid) {

@@ -9,6 +9,7 @@ import {
   Users as UsersIcon,
   ChevronLeft,
   Layers,
+  FolderOpen,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import SprintStatusEditor from './SprintStatusEditor';
@@ -16,27 +17,26 @@ import { colorForStatus, defaultSprintStatuses, flattenStatuses } from '../lib/s
 
 interface SprintListProps {
   project: Project;
+  projects: Project[];
   currentUser: User;
-  users: User[];
   onSelectSprint: (sprint: Sprint) => void;
   onChangeProject: () => void;
 }
 
 export default function SprintList({
   project,
+  projects,
   currentUser,
-  users,
   onSelectSprint,
   onChangeProject,
 }: SprintListProps) {
   const [sprints, setSprints] = useState<Sprint[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSprintName, setNewSprintName] = useState('');
-  const [newSprintTeam, setNewSprintTeam] = useState('');
   const [newSprintStatuses, setNewSprintStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
   const [editingSprint, setEditingSprint] = useState<Sprint | null>(null);
   const [editName, setEditName] = useState('');
-  const [editTeam, setEditTeam] = useState('');
+  const [editProjectId, setEditProjectId] = useState('');
   const [editStatuses, setEditStatuses] = useState<SprintStatus[]>(defaultSprintStatuses());
   const [tasksBySprintId, setTasksBySprintId] = useState<Record<string, Task[]>>({});
 
@@ -58,48 +58,40 @@ export default function SprintList({
   const isAdmin = currentUser.role === 'Admin' || isOwnerEmail;
   const canManageSprints = isAdmin || currentUser.role === 'Teacher';
 
-  const allTeamsAcrossUsers = useMemo(() => {
-    const set = new Set<string>();
-    users.forEach((u) => (u.teams || []).forEach((t) => set.add(t)));
-    userTeams.forEach((t) => set.add(t));
-    return Array.from(set).sort();
-  }, [users, userTeams]);
-
-  const visibleSprints = useMemo(() => {
-    if (isAdmin) return sprints;
-    return sprints.filter((s) => !s.team || userTeams.includes(s.team));
-  }, [sprints, userTeams, isAdmin]);
+  const availableProjects = useMemo(() => {
+    if (isAdmin) return projects;
+    return projects.filter((p) => p.team && userTeams.includes(p.team));
+  }, [projects, userTeams, isAdmin]);
 
   useEffect(() => {
-    if (visibleSprints.length === 0) {
+    if (sprints.length === 0) {
       setTasksBySprintId({});
       return;
     }
 
-    const visibleSprintIds = visibleSprints.map(sprint => sprint.id);
-    setTasksBySprintId(prev => {
+    const sprintIds = sprints.map((sprint) => sprint.id);
+    setTasksBySprintId((prev) => {
       const next: Record<string, Task[]> = {};
-      visibleSprintIds.forEach((id: string) => {
+      sprintIds.forEach((id: string) => {
         next[id] = prev[id] || [];
       });
       return next;
     });
 
-    const unsubscribes = visibleSprints.map(sprint =>
-      firebaseService.subscribeTasks(sprint.id, tasks => {
-        setTasksBySprintId(prev => ({
+    const unsubscribes = sprints.map((sprint) =>
+      firebaseService.subscribeTasks(sprint.id, (tasks) => {
+        setTasksBySprintId((prev) => ({
           ...prev,
           [sprint.id]: tasks,
         }));
       })
     );
 
-    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
-  }, [visibleSprints]);
+    return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
+  }, [sprints]);
 
   const handleOpenCreate = () => {
     setNewSprintName('');
-    setNewSprintTeam(userTeams[0] || '');
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(true);
   };
@@ -129,14 +121,13 @@ export default function SprintList({
 
   const handleCreateSprint = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSprintName.trim() || !newSprintTeam.trim()) return;
+    if (!newSprintName.trim()) return;
 
     const statuses = sanitizeStatuses(newSprintStatuses);
     if (statuses.length === 0) return;
 
     await firebaseService.createSprint({
       name: newSprintName.trim(),
-      team: newSprintTeam.trim(),
       projectId: project.id,
       isActive: true,
       statuses,
@@ -144,7 +135,6 @@ export default function SprintList({
     });
 
     setNewSprintName('');
-    setNewSprintTeam('');
     setNewSprintStatuses(defaultSprintStatuses());
     setShowCreateModal(false);
   };
@@ -152,7 +142,7 @@ export default function SprintList({
   const startEditSprint = (sprint: Sprint) => {
     setEditingSprint(sprint);
     setEditName(sprint.name);
-    setEditTeam(sprint.team || '');
+    setEditProjectId(sprint.projectId);
     setEditStatuses(
       sprint.statuses && sprint.statuses.length > 0
         ? sprint.statuses
@@ -163,20 +153,20 @@ export default function SprintList({
   const cancelEditSprint = () => {
     setEditingSprint(null);
     setEditName('');
-    setEditTeam('');
+    setEditProjectId('');
     setEditStatuses(defaultSprintStatuses());
   };
 
   const handleSaveEditSprint = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingSprint || !editName.trim() || !editTeam.trim()) return;
+    if (!editingSprint || !editName.trim() || !editProjectId) return;
 
     const statuses = sanitizeStatuses(editStatuses);
     if (statuses.length === 0) return;
 
     await firebaseService.updateSprint(editingSprint.id, {
       name: editName.trim(),
-      team: editTeam.trim(),
+      projectId: editProjectId,
       statuses,
     });
 
@@ -208,7 +198,7 @@ export default function SprintList({
           <Layers className="w-6 h-6 md:w-7 md:h-7 text-amber-500 shrink-0" />
           <div className="min-w-0">
             <p className="text-[9px] uppercase font-bold text-bento-mute tracking-widest">
-              Proyecto
+              Proyecto{project.team ? ` · ${project.team}` : ''}
             </p>
             <h2 className="text-lg md:text-2xl font-bold text-bento-ink truncate leading-tight">
               {project.name}
@@ -239,19 +229,16 @@ export default function SprintList({
           Sprints del proyecto
         </h3>
         <span className="text-[10px] uppercase font-bold text-bento-mute tracking-widest">
-          {visibleSprints.length}{' '}
-          {visibleSprints.length === 1 ? 'sprint' : 'sprints'}
+          {sprints.length} {sprints.length === 1 ? 'sprint' : 'sprints'}
         </span>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 -mr-1">
-        {visibleSprints.length === 0 ? (
+        {sprints.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-bento-mute gap-3 text-center py-12">
             <UsersIcon className="w-12 h-12 text-amber-300" />
             <p className="text-base font-semibold text-bento-ink/70">
-              {isAdmin
-                ? 'Aún no hay sprints en este proyecto.'
-                : 'No hay sprints en tus equipos para este proyecto.'}
+              Aún no hay sprints en este proyecto.
             </p>
             {canManageSprints && (
               <button
@@ -265,7 +252,7 @@ export default function SprintList({
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {visibleSprints.map((sprint) => (
+            {sprints.map((sprint) => (
               <motion.div
                 key={sprint.id}
                 initial={{ opacity: 0, y: 10 }}
@@ -273,7 +260,7 @@ export default function SprintList({
                 onClick={() => onSelectSprint(sprint)}
                 className="group p-4 md:p-5 bg-white border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50/30 transition-all rounded-xl cursor-pointer relative"
               >
-                <div className={`flex items-start gap-2 mb-2 min-w-0 ${canManageSprints ? 'pr-20' : ''}`}>
+                <div className={`flex items-start gap-2 mb-3 min-w-0 ${canManageSprints ? 'pr-20' : ''}`}>
                   {sprint.isActive && (
                     <span className="mt-0.5 text-[9px] bg-emerald-400 text-white px-2 py-0.5 rounded-full uppercase font-bold tracking-tighter shrink-0">
                       Activo
@@ -282,16 +269,6 @@ export default function SprintList({
                   <h3 className="font-bold text-bento-ink text-base md:text-lg leading-tight break-words min-w-0">
                     {sprint.name}
                   </h3>
-                </div>
-                <div className="flex items-center gap-2 min-w-0 mb-3">
-                  {sprint.team ? (
-                    <p className="text-xs text-bento-mute flex items-center gap-1 truncate min-w-0">
-                      <UsersIcon className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{sprint.team}</span>
-                    </p>
-                  ) : (
-                    <p className="text-xs text-bento-mute italic">Sin equipo</p>
-                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {flattenStatuses(sprint.statuses && sprint.statuses.length > 0 ? sprint.statuses : defaultSprintStatuses()).map(status => {
@@ -365,6 +342,9 @@ export default function SprintList({
               </h3>
               <p className="text-xs text-bento-mute mb-4 -mt-2">
                 en proyecto <span className="font-semibold text-bento-ink">{project.name}</span>
+                {project.team && (
+                  <> · equipo <span className="font-semibold text-bento-ink">{project.team}</span></>
+                )}
               </p>
               <form onSubmit={handleCreateSprint} className="space-y-4">
                 <div>
@@ -379,49 +359,6 @@ export default function SprintList({
                     value={newSprintName}
                     onChange={(e) => setNewSprintName(e.target.value)}
                   />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
-                    Equipo
-                  </label>
-                  <input
-                    type="text"
-                    list="sprintlist-team-suggestions"
-                    required
-                    placeholder="Escribe un equipo nuevo o elige uno existente"
-                    className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
-                    value={newSprintTeam}
-                    onChange={(e) => setNewSprintTeam(e.target.value)}
-                  />
-                  <datalist id="sprintlist-team-suggestions">
-                    {allTeamsAcrossUsers.map((t) => (
-                      <option key={t} value={t} />
-                    ))}
-                  </datalist>
-                  {allTeamsAcrossUsers.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {allTeamsAcrossUsers.map((t) => {
-                        const selected = newSprintTeam === t;
-                        return (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setNewSprintTeam(t)}
-                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
-                              selected
-                                ? 'bg-amber-400 border-amber-400 text-bento-ink'
-                                : 'bg-white border-bento-border text-bento-mute hover:border-amber-400 hover:text-bento-ink'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
-                    Solo los miembros de este equipo verán el sprint.
-                  </p>
                 </div>
                 <SprintStatusEditor
                   value={newSprintStatuses}
@@ -476,43 +413,36 @@ export default function SprintList({
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-bento-mute uppercase mb-1.5 tracking-widest">
-                    Equipo
+                    Proyecto
                   </label>
-                  <input
-                    type="text"
-                    list="sprintlist-edit-team-suggestions"
-                    required
-                    placeholder="Escribe un equipo nuevo o elige uno existente"
-                    className="w-full px-4 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink"
-                    value={editTeam}
-                    onChange={(e) => setEditTeam(e.target.value)}
-                  />
-                  <datalist id="sprintlist-edit-team-suggestions">
-                    {allTeamsAcrossUsers.map((t) => (
-                      <option key={t} value={t} />
-                    ))}
-                  </datalist>
-                  {allTeamsAcrossUsers.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {allTeamsAcrossUsers.map((t) => {
-                        const selected = editTeam === t;
-                        return (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setEditTeam(t)}
-                            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
-                              selected
-                                ? 'bg-amber-400 border-amber-400 text-bento-ink'
-                                : 'bg-white border-bento-border text-bento-mute hover:border-amber-400 hover:text-bento-ink'
-                            }`}
-                          >
-                            {t}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="relative">
+                    <FolderOpen className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-bento-mute pointer-events-none" />
+                    <select
+                      required
+                      value={editProjectId}
+                      onChange={(e) => setEditProjectId(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-bento-ink appearance-none cursor-pointer"
+                    >
+                      {availableProjects.length === 0 && (
+                        <option value="" disabled>
+                          No hay proyectos disponibles
+                        </option>
+                      )}
+                      {availableProjects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                          {p.team ? ` · ${p.team}` : ''}
+                        </option>
+                      ))}
+                      {/* Keep current value visible even if it's not in availableProjects */}
+                      {!availableProjects.some((p) => p.id === editProjectId) && editProjectId && (
+                        <option value={editProjectId}>{`(actual)`}</option>
+                      )}
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
+                    Cambiar el proyecto traslada el sprint al equipo del nuevo proyecto.
+                  </p>
                 </div>
                 <SprintStatusEditor
                   value={editStatuses}

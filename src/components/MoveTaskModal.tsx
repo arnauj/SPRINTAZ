@@ -13,29 +13,29 @@ interface MoveTaskModalProps {
 
 export default function MoveTaskModal({ isOpen, onClose, task, currentProject }: MoveTaskModalProps) {
   const [sprints, setSprints] = useState<Sprint[]>([]);
+  const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen && task) {
+      setSelectedSprintId(null);
       setLoading(true);
       firebaseService.getSprintsByProject(currentProject.id)
         .then(allSprints => {
-          // Exclude current sprint and closed sprints (optionally)
-          // For now, let's show all active sprints except current one
           setSprints(allSprints.filter(s => s.id !== task.sprintId && !s.isClosed));
         })
         .finally(() => setLoading(false));
     }
   }, [isOpen, task, currentProject.id]);
 
-  const handleMove = async (targetSprintId: string) => {
-    if (!task) return;
+  const handleMove = async () => {
+    if (!task || !selectedSprintId) return;
     setSubmitting(true);
-    console.log('Moving task', task.id, 'to sprint', targetSprintId);
+    console.log('Moving task', task.id, 'to sprint', selectedSprintId);
     try {
       await firebaseService.updateTask(task.id, { 
-        sprintId: targetSprintId
+        sprintId: selectedSprintId
       });
       console.log('Task updated successfully');
       onClose();
@@ -91,13 +91,17 @@ export default function MoveTaskModal({ isOpen, onClose, task, currentProject }:
                   {sprints.map(s => (
                     <button
                       key={s.id}
-                      onClick={() => handleMove(s.id)}
+                      onClick={() => setSelectedSprintId(s.id)}
                       disabled={submitting}
-                      className="w-full text-left p-4 rounded-xl border-2 border-bento-border hover:border-amber-400 hover:bg-amber-50 transition-all cursor-pointer group disabled:opacity-50"
+                      className={`w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                        selectedSprintId === s.id 
+                        ? 'border-amber-500 bg-amber-50 ring-1 ring-amber-500' 
+                        : 'border-bento-border hover:border-amber-400'
+                      }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-bento-ink group-hover:text-amber-700">{s.name}</span>
-                        <ArrowRightLeft className="w-4 h-4 text-bento-mute group-hover:text-amber-500" />
+                        <span className={`font-bold ${selectedSprintId === s.id ? 'text-amber-700' : 'text-bento-ink'}`}>{s.name}</span>
+                        {selectedSprintId === s.id && <div className="w-2.5 h-2.5 bg-amber-500 rounded-full" />}
                       </div>
                     </button>
                   ))}
@@ -105,12 +109,19 @@ export default function MoveTaskModal({ isOpen, onClose, task, currentProject }:
               )}
             </div>
 
-            <div className="mt-8 pt-4 border-t border-bento-border">
+            <div className="mt-8 pt-4 border-t border-bento-border flex gap-3">
               <button
                 onClick={onClose}
-                className="w-full py-3 text-sm font-semibold text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
+                className="flex-1 py-3 text-sm font-semibold text-bento-mute hover:text-bento-ink transition-colors cursor-pointer"
               >
                 Cancelar
+              </button>
+              <button
+                onClick={handleMove}
+                disabled={submitting || !selectedSprintId}
+                className="flex-1 py-3 text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 transition-colors cursor-pointer rounded-lg disabled:opacity-50"
+              >
+                {submitting ? 'Moviendo...' : 'Confirmar Movimiento'}
               </button>
             </div>
           </motion.div>

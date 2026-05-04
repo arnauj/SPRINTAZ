@@ -13,6 +13,8 @@ interface KanbanBoardProps {
   project: Project;
   currentUser: User;
   users: User[];
+  activeTask: Task | null;
+  onSetActiveTask: (task: Task | null) => void;
   onBack?: () => void;
 }
 
@@ -55,12 +57,11 @@ function daysUntil(end?: string): number | null {
   return diff;
 }
 
-export default function KanbanBoard({ sprint, project, currentUser, users, onBack }: KanbanBoardProps) {
+export default function KanbanBoard({ sprint, project, currentUser, users, activeTask, onSetActiveTask, onBack }: KanbanBoardProps) {
   const { confirm, confirmDialog } = useConfirmDialog();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [movingTask, setMovingTask] = useState<Task | null>(null);
 
   const columns = useMemo<ColumnConfig[]>(() => {
@@ -185,7 +186,7 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
 
   const handleEdit = (task: Task) => {
     if (isClosed) return;
-    setEditingTask(task);
+    onSetActiveTask(task);
   };
 
   const canModify = (task: Task) => {
@@ -361,16 +362,16 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
       </div>
 
       <CreateTaskModal
-        isOpen={showCreateModal || editingTask !== null}
+        isOpen={showCreateModal || activeTask !== null}
         onClose={() => {
           setShowCreateModal(false);
-          setEditingTask(null);
+          onSetActiveTask(null);
         }}
         sprintId={sprint.id}
         initialStatus={pendingStatus}
         currentUser={currentUser}
         users={users}
-        editingTask={editingTask}
+        editingTask={activeTask}
       />
 
       <MoveTaskModal

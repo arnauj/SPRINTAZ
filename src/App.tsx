@@ -28,6 +28,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { getPath, parsePath } from './lib/router';
 
 import SprintSidebar from './components/SprintSidebar';
 import SprintList from './components/SprintList';
@@ -67,9 +68,26 @@ function authErrorMessage(err: unknown): string {
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
-  const [activeSprint, setActiveSprint] = useState<Sprint | null>(null);
+  const [navigationState, setNavigationState] = useState<{
+    project: Project | null;
+    sprint: Sprint | null;
+    task: Task | null;
+  }>({ project: null, sprint: null, task: null });
   const [projects, setProjects] = useState<Project[]>([]);
+  const isInternalNav = useRef(false);
+  const didAutoSelectProject = useRef(false);
+
+  const activeProject = navigationState.project;
+  const activeSprint = navigationState.sprint;
+  const activeTask = navigationState.task;
+
+  const setActiveProject = (p: Project | null) => 
+    setNavigationState(prev => ({ ...prev, project: p, sprint: null, task: null }));
+  const setActiveSprint = (s: Sprint | null) => 
+    setNavigationState(prev => ({ ...prev, sprint: s, task: null }));
+  const setActiveTask = (t: Task | null) => 
+    setNavigationState(prev => ({ ...prev, task: t }));
+
   const [users, setUsers] = useState<User[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
@@ -81,7 +99,6 @@ export default function App() {
   const [emailValue, setEmailValue] = useState('');
   const [passwordValue, setPasswordValue] = useState('');
   const [nameValue, setNameValue] = useState('');
-  const didAutoSelectProject = useRef(false);
 
   useEffect(() => {
     // If we returned from a redirect-based sign-in (mobile/PWA flow),
@@ -157,23 +174,87 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
-    didAutoSelectProject.current = false;
     const isOwnerEmail = user.email?.toLowerCase() === 'juanrael@gmail.com';
     const isAdmin = user.role === 'Admin' || isOwnerEmail;
     const userTeams = user.teams && user.teams.length > 0 ? user.teams : [user.name];
+    
     const unsubscribe = firebaseService.subscribeProjects((allProjects) => {
       setProjects(allProjects);
-      if (didAutoSelectProject.current) return;
-      const visible = isAdmin
-        ? allProjects
-        : allProjects.filter((p) => p.team && userTeams.includes(p.team));
-      if (visible.length === 0) return;
-      didAutoSelectProject.current = true;
-      const epycaProject = visible.find((p) => p.name === 'Epyca');
-      setActiveProject(epycaProject || visible[0]);
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Routing and Initial Load
+  useEffect(() => {
+    if (!user || projects.length === 0) return;
+    
+    const isOwnerEmail = user.email?.toLowerCase() === 'juanrael@gmail.com';
+    const isAdmin = user.role === 'Admin' || isOwnerEmail;
+    const userTeams = user.teams && user.teams.length > 0 ? user.teams : [user.name];
+
+    const resolveStateFromUrl = async () => {
+      const { projectId, sprintId, taskId } = parsePath(window.location.pathname);
+      const project = projects.find(p => p.id === projectId) || null;
+      let sprint = null;
+      let task = null;
+      
+      if (project && sprintId) {
+        const sprintList = await firebaseService.getSprintsByProject(project.id);
+        sprint = sprintList.find(s => s.id === sprintId) || null;
+        
+        if (sprint && taskId) {
+            const taskList = await firebaseService.getTasksBySprint(sprint.id);
+            task = taskList.find(t => t.id === taskId) || null;
+        }
+      }
+
+      return { project, sprint, task };
+    };
+
+    const initFromUrl = async () => {
+      if (didAutoSelectProject.current) return;
+      
+      const { project, sprint, task } = await resolveStateFromUrl();
+      
+      if (project) {
+        setNavigationState({ project, sprint, task });
+      } else if (window.location.pathname === '/') {
+        const visible = isAdmin
+          ? projects
+          : projects.filter((p) => p.team && userTeams.includes(p.team));
+        if (visible.length === 0) return;
+        didAutoSelectProject.current = true;
+        const epycaProject = visible.find((p) => p.name === 'Epyca');
+        setNavigationState({ project: epycaProject || visible[0], sprint: null, task: null });
+      }
+    };
+
+    initFromUrl();
+
+    const handlePopState = async () => {
+        isInternalNav.current = true;
+        const newState = await resolveStateFromUrl();
+        setNavigationState(newState);
+        setTimeout(() => { isInternalNav.current = false; }, 0);
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [user, projects]);
+
+  useEffect(() => {
+      if (isInternalNav.current) return;
+
+      const path = getPath(
+          activeProject ? { name: activeProject.name, id: activeProject.id } : undefined,
+          activeSprint ? { name: activeSprint.name, id: activeSprint.id } : undefined,
+          activeTask ? { name: activeTask.name, id: activeTask.id } : undefined
+      );
+      
+      if (window.location.pathname !== path) {
+          window.history.pushState({}, '', path);
+      }
+  }, [activeProject, activeSprint, activeTask]);
 
   useEffect(() => {
     if (!activeProject) return;
@@ -583,7 +664,12 @@ export default function App() {
                     project={activeProject}
                     currentUser={user}
                     users={users}
-                    onBack={() => setActiveSprint(null)}
+                    activeTask={activeTask}
+                    onSetActiveTask={setActiveTask}
+                    onBack={() => {
+                        setActiveSprint(null);
+                        setActiveTask(null);
+                    }}
                   />
                 </motion.div>
               ) : (

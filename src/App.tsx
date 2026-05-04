@@ -75,7 +75,7 @@ export default function App() {
   }>({ project: null, sprint: null, task: null });
   const [projects, setProjects] = useState<Project[]>([]);
   const isInternalNav = useRef(false);
-  const didAutoSelectProject = useRef(false);
+  const didInitFromUrl = useRef(false);
 
   const activeProject = navigationState.project;
   const activeSprint = navigationState.sprint;
@@ -187,14 +187,10 @@ export default function App() {
   // Routing and Initial Load
   useEffect(() => {
     if (!user || projects.length === 0) return;
-    
-    const isOwnerEmail = user.email?.toLowerCase() === 'juanrael@gmail.com';
-    const isAdmin = user.role === 'Admin' || isOwnerEmail;
-    const userTeams = user.teams && user.teams.length > 0 ? user.teams : [user.name];
 
-    const resolveStateFromUrl = async () => {
+    const resolveStateFromUrl = async (projectsList: Project[]) => {
       const { projectId, sprintId, taskId } = parsePath(window.location.pathname);
-      const project = projects.find(p => p.id === projectId) || null;
+      const project = projectsList.find(p => p.id === projectId) || null;
       let sprint = null;
       let task = null;
       
@@ -212,28 +208,22 @@ export default function App() {
     };
 
     const initFromUrl = async () => {
-      if (didAutoSelectProject.current) return;
+      if (didInitFromUrl.current) return;
       
-      const { project, sprint, task } = await resolveStateFromUrl();
+      const newState = await resolveStateFromUrl(projects);
+      console.log('initFromUrl resolved state:', newState, 'from path:', window.location.pathname);
       
-      if (project) {
-        setNavigationState({ project, sprint, task });
-      } else if (window.location.pathname === '/') {
-        const visible = isAdmin
-          ? projects
-          : projects.filter((p) => p.team && userTeams.includes(p.team));
-        if (visible.length === 0) return;
-        didAutoSelectProject.current = true;
-        const epycaProject = visible.find((p) => p.name === 'Epyca');
-        setNavigationState({ project: epycaProject || visible[0], sprint: null, task: null });
-      }
+      // If we are at root and didn't find a project, just mark as initialized.
+      // If we found a project, update state.
+      setNavigationState(newState);
+      didInitFromUrl.current = true;
     };
 
     initFromUrl();
 
     const handlePopState = async () => {
         isInternalNav.current = true;
-        const newState = await resolveStateFromUrl();
+        const newState = await resolveStateFromUrl(projects);
         setNavigationState(newState);
         setTimeout(() => { isInternalNav.current = false; }, 0);
     };
@@ -243,15 +233,18 @@ export default function App() {
   }, [user, projects]);
 
   useEffect(() => {
-      if (isInternalNav.current) return;
-
+      if (isInternalNav.current || !didInitFromUrl.current) return;
+      
+      const currentPath = window.location.pathname;
       const path = getPath(
           activeProject ? { name: activeProject.name, id: activeProject.id } : undefined,
           activeSprint ? { name: activeSprint.name, id: activeSprint.id } : undefined,
           activeTask ? { name: activeTask.name, id: activeTask.id } : undefined
       );
       
-      if (window.location.pathname !== path) {
+      console.log('Syncing URL:', currentPath, '->', path);
+      
+      if (currentPath !== path) {
           window.history.pushState({}, '', path);
       }
   }, [activeProject, activeSprint, activeTask]);
@@ -260,10 +253,9 @@ export default function App() {
     if (!activeProject) return;
     const fresh = projects.find((p) => p.id === activeProject.id);
     if (fresh && fresh !== activeProject) {
-      setActiveProject(fresh);
-    } else if (!fresh) {
+      setNavigationState(prev => ({ ...prev, project: fresh }));
+    } else if (!fresh && projects.length > 0) {
       setActiveProject(null);
-      setActiveSprint(null);
     }
   }, [projects, activeProject]);
 
@@ -562,11 +554,7 @@ export default function App() {
       <header className="relative z-50 h-14 md:h-16 flex items-center justify-between px-2 md:px-5 bg-white/80 backdrop-blur border border-bento-border shadow-sm shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           <button
-            onClick={() => {
-              setActiveSprint(null);
-              setActiveProject(null);
-              didAutoSelectProject.current = true;
-            }}
+            onClick={() => setActiveProject(null)}
             className="h-9 w-9 md:h-10 md:w-10 bg-bento-ink rounded-xl flex items-center justify-center shrink-0 hover:bg-black transition-colors cursor-pointer shadow-sm overflow-hidden"
             title="SPRINTAZ"
             aria-label="Inicio"
@@ -578,11 +566,7 @@ export default function App() {
             <div className="flex items-center gap-1.5 min-w-0 flex-nowrap">
               <ChevronRight className="w-4 h-4 text-bento-mute shrink-0 hidden sm:block" />
               <button
-                onClick={() => {
-                  setActiveSprint(null);
-                  setActiveProject(null);
-                  didAutoSelectProject.current = true;
-                }}
+                onClick={() => setActiveProject(null)}
                 className="flex items-center gap-1.5 text-sm font-bold text-amber-700 hover:text-amber-800 hover:bg-amber-50 px-2 py-1 rounded transition-colors cursor-pointer min-w-0"
                 title="Cambiar de proyecto"
               >
@@ -685,11 +669,7 @@ export default function App() {
                     projects={projects}
                     currentUser={user}
                     onSelectSprint={setActiveSprint}
-                    onChangeProject={() => {
-                      setActiveSprint(null);
-                      setActiveProject(null);
-                      didAutoSelectProject.current = true;
-                    }}
+                    onChangeProject={() => setActiveProject(null)}
                   />
                 </motion.div>
               )
@@ -698,7 +678,6 @@ export default function App() {
                 currentUser={user}
                 users={users}
                 onSelectProject={(project) => {
-                  didAutoSelectProject.current = true;
                   setActiveProject(project);
                 }}
               />

@@ -1,3 +1,5 @@
+const BASE_PATH = '/SPRINTAZ';
+
 export const slugify = (text: string) => {
   return text
     .toString()
@@ -22,15 +24,17 @@ export const getIdFromSlug = (slug: string) => {
 };
 
 export const getPath = (project?: { name: string, id: string }, sprint?: { name: string, id: string }, task?: { name: string, id: string }) => {
-  let path = '/';
+  let path = BASE_PATH;
   if (project) {
-    path += `p/${createSlug(project.name, project.id)}`;
+    path += `/p/${createSlug(project.name, project.id)}`;
     if (sprint) {
       path += `/s/${createSlug(sprint.name, sprint.id)}`;
       if (task) {
         path += `/t/${createSlug(task.name, task.id)}`;
       }
     }
+  } else {
+      path += '/';
   }
   return path;
 };
@@ -42,7 +46,12 @@ export interface RouteState {
 }
 
 export const parsePath = (path: string): RouteState => {
-  const parts = path.split('/').filter(Boolean);
+  // Remove BASE_PATH if present
+  const normalizedPath = path.startsWith(BASE_PATH) 
+    ? path.slice(BASE_PATH.length) 
+    : path;
+    
+  const parts = normalizedPath.split('/').filter(Boolean);
   let projectId = null;
   let sprintId = null;
   let taskId = null;

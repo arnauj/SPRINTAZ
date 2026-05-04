@@ -12,7 +12,7 @@ import {
   signOut,
   type AuthError
 } from 'firebase/auth';
-import { auth } from './lib/firebase';
+import { auth, onForegroundMessage } from './lib/firebase';
 import { firebaseService } from './services/firebaseService';
 import { User, Sprint, Project } from './types';
 import {
@@ -143,6 +143,15 @@ export default function App() {
   useEffect(() => {
     if (!user) return;
     const unsubscribe = firebaseService.subscribeUsers(setUsers);
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsubscribe = onForegroundMessage((payload) => {
+      console.log('Foreground message received:', payload);
+      // In-app notifications are already handled by NotificationBell's subscription to Firestore
+    });
     return () => unsubscribe();
   }, [user]);
 

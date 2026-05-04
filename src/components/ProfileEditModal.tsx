@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
+import { requestNotificationPermissionAndToken } from '../lib/firebase';
 import { User } from '../types';
-import { X, ImageIcon, User as UserIcon, Upload } from 'lucide-react';
+import { X, ImageIcon, User as UserIcon, Upload, Bell } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProfileEditModalProps {
@@ -16,6 +17,8 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
   const [photoURL, setPhotoURL] = useState(user.photoURL || '');
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [enablingPush, setEnablingPush] = useState(false);
+  const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>(user.fcmToken ? 'success' : 'idle');
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -24,8 +27,30 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
       setName(user.name);
       setPhotoURL(user.photoURL || '');
       setError(null);
+      setPushStatus(user.fcmToken ? 'success' : 'idle');
     }
   }, [isOpen, user]);
+
+  const handleEnablePush = async () => {
+    setEnablingPush(true);
+    setError(null);
+    try {
+      const token = await requestNotificationPermissionAndToken();
+      if (token) {
+        await firebaseService.updateUserFCMToken(user.uid, token);
+        setPushStatus('success');
+        onSaved({ ...user, fcmToken: token });
+      } else {
+        setError('No se pudo obtener el permiso o el token de notificaciones.');
+        setPushStatus('error');
+      }
+    } catch (e) {
+      setError('Error al activar notificaciones push.');
+      setPushStatus('error');
+    } finally {
+      setEnablingPush(false);
+    }
+  };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.currentTarget.files?.[0];
@@ -179,6 +204,32 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
                 <div className="w-full px-4 py-3 bg-slate-50 border border-bento-border text-bento-mute rounded-xl text-sm font-mono">
                   {user.email}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
+                  Notificaciones Push
+                </label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleEnablePush}
+                    disabled={enablingPush || pushStatus === 'success'}
+                    className={`flex-1 px-4 py-3 border-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                      pushStatus === 'success' 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700 cursor-default'
+                        : 'bg-white border-bento-border hover:border-amber-400 text-bento-ink'
+                    }`}
+                  >
+                    <Bell className={`w-4 h-4 ${pushStatus === 'success' ? 'text-emerald-500' : 'text-bento-mute'}`} />
+                    {enablingPush ? 'Activando...' : pushStatus === 'success' ? 'Notificaciones activas' : 'Activar en este dispositivo'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">
+                  {pushStatus === 'success' 
+                    ? 'Este dispositivo está listo para recibir alertas aunque la app esté cerrada.' 
+                    : 'Necesario para recibir alertas en el móvil con la app cerrada.'}
+                </p>
               </div>
 
               {error && (

@@ -7,6 +7,7 @@ export interface User {
   role: UserRole;
   photoURL?: string;
   teams?: string[];
+  fcmToken?: string;
 }
 
 export interface Project {

@@ -99,6 +99,14 @@ export const firebaseService = {
     }
   },
 
+  async updateUserFCMToken(uid: string, fcmToken: string | null) {
+    try {
+      await updateDoc(doc(db, 'users', uid), { fcmToken });
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, `users/${uid}`);
+    }
+  },
+
   async uploadUserPhoto(uid: string, file: File): Promise<string> {
     try {
       const ext = file.name.split('.').pop() || 'jpg';
@@ -375,18 +383,5 @@ export const firebaseService = {
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'notifications'));
-  },
-
-  // --- Email (Firebase "Trigger Email" extension consumes the `mail` collection) ---
-  async sendEmail(to: string, subject: string, html: string) {
-    try {
-      await addDoc(collection(db, 'mail'), {
-        to,
-        message: { subject, html },
-        createdAt: serverTimestamp(),
-      });
-    } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, 'mail');
-    }
   }
 };

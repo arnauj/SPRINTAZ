@@ -152,14 +152,5 @@ service cloud.firestore {
       allow create: if isSignedIn(); // System creates notifications
       allow update: if isOwner(resource.data.userId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
     }
-
-    // --- Mail queue (consumed by Firebase "Trigger Email" extension) ---
-    // Documents are deleted by the extension after delivery; only writes are needed.
-    match /mail/{mailId} {
-      allow create: if isSignedIn()
-        && request.resource.data.to is string
-        && request.resource.data.message.subject is string;
-      allow read, update, delete: if false;
-    }
   }
 }

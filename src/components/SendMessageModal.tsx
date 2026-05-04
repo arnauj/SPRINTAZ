@@ -60,7 +60,6 @@ export default function SendMessageModal({ isOpen, onClose, currentUser, users }
       );
       setSentCount(recipients.length);
       setMessage('');
-      setTimeout(() => onClose(), 1200);
     } finally {
       setSubmitting(false);
     }

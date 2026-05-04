@@ -210,11 +210,15 @@ export default function App() {
     const initFromUrl = async () => {
       if (didInitFromUrl.current) return;
       
+      const searchParams = new URLSearchParams(window.location.search);
+      const redirectPath = searchParams.get('redirect');
+      if (redirectPath) {
+        window.history.replaceState({}, '', redirectPath);
+      }
+
       const newState = await resolveStateFromUrl(projects);
       console.log('initFromUrl resolved state:', newState, 'from path:', window.location.pathname);
       
-      // If we are at root and didn't find a project, just mark as initialized.
-      // If we found a project, update state.
       setNavigationState(newState);
       didInitFromUrl.current = true;
     };

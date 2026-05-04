@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script>
+      // Retrieve the path that caused the 404
+      var path = window.location.pathname;
+      // Redirect to the index page, passing the original path as a query parameter
+      window.location.replace(
+        window.location.protocol + "//" + window.location.host + "/SPRINTAZ/" + 
+        "?redirect=" + encodeURIComponent(path)
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

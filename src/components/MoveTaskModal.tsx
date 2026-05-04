@@ -32,11 +32,12 @@ export default function MoveTaskModal({ isOpen, onClose, task, currentProject }:
   const handleMove = async (targetSprintId: string) => {
     if (!task) return;
     setSubmitting(true);
+    console.log('Moving task', task.id, 'to sprint', targetSprintId);
     try {
       await firebaseService.updateTask(task.id, { 
-        sprintId: targetSprintId,
-        updatedAt: new Date() // Force update
+        sprintId: targetSprintId
       });
+      console.log('Task updated successfully');
       onClose();
     } catch (e) {
       console.error('Error moving task:', e);

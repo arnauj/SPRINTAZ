@@ -490,7 +490,7 @@ export default function App() {
             title="SPRINTAZ"
             aria-label="Inicio"
           >
-            <img src="/SPRINTAZ/icon.svg" className="w-full h-full object-contain " alt="" />
+            <img src="/SPRINTAZ/icon-512.png" className="w-full h-full object-contain " alt="" />
           </button>
           <h1 className="text-base font-bold tracking-tight shrink-0 hidden sm:block">SPRINTAZ</h1>
           {activeProject ? (

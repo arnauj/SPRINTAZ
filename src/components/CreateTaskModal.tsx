@@ -4,12 +4,10 @@ import { Task, TaskStatus, User, TaskComment, TaskLink, TaskEmailAlert } from '.
 import { X, Bell, Link as LinkIcon, MessageSquare, Plus, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  backlog: 'Backlog',
-  todo: 'Aprobadas',
-  in_progress: 'Doing',
-  done: 'Desplegado',
-};
+interface StatusOption {
+  id: TaskStatus;
+  name: string;
+}
 
 const COLOR_OPTIONS: { value: string; label: string }[] = [
   { value: '#A8E6C9', label: 'Verde' },
@@ -35,9 +33,10 @@ interface CreateTaskModalProps {
   currentUser: User;
   users: User[];
   editingTask?: Task | null;
+  statusOptions: StatusOption[];
 }
 
-export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser, users, editingTask }: CreateTaskModalProps) {
+export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStatus, currentUser, users, editingTask, statusOptions }: CreateTaskModalProps) {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState(5);
   const [description, setDescription] = useState('');
@@ -54,6 +53,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
   const [emailAlerts, setEmailAlerts] = useState<TaskEmailAlert[]>([]);
   const [alertUserId, setAlertUserId] = useState('');
   const [alertStatus, setAlertStatus] = useState<TaskStatus>('done');
+  const [taskStatus, setTaskStatus] = useState<TaskStatus>(initialStatus);
 
   const isEditMode = !!editingTask;
 
@@ -67,6 +67,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
         setComments(editingTask.comments || []);
         setLinks(editingTask.links || []);
         setEmailAlerts(editingTask.emailAlerts || []);
+        setTaskStatus(editingTask.status || initialStatus);
       } else {
         setName('');
         setWeight(5);
@@ -75,6 +76,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
         setComments([]);
         setLinks([]);
         setEmailAlerts([]);
+        setTaskStatus(initialStatus);
       }
       setNewComment('');
       setLinkTitle('');
@@ -82,7 +84,9 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
       setAlertUserId('');
       setAlertStatus('done');
     }
-  }, [isOpen, editingTask]);
+  }, [isOpen, editingTask, initialStatus]);
+
+  const getStatusLabel = (status: TaskStatus) => statusOptions.find(s => s.id === status)?.name || status;
 
   const addComment = () => {
     const text = newComment.trim();
@@ -133,13 +137,14 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
           comments,
           links,
           emailAlerts,
+          status: taskStatus,
         });
       } else {
         await firebaseService.createTask({
           name,
           description,
           weight,
-          status: initialStatus,
+          status: taskStatus,
           sprintId,
           createdBy: currentUser.uid,
           ...(color ? { color } : {}),
@@ -222,9 +227,15 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                     </div>
                     <div>
                       <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-[0.18em] mb-2">Estado</label>
-                      <div className="px-3 py-2 bg-slate-100 rounded-lg text-xs font-semibold text-bento-ink min-w-[120px] text-center">
-                        {STATUS_LABELS[editingTask?.status || initialStatus]}
-                      </div>
+                      <select
+                        value={taskStatus}
+                        onChange={(e) => setTaskStatus(e.target.value)}
+                        className="px-3 py-2 bg-slate-100 border-2 border-bento-border focus:border-amber-400 rounded-lg text-xs font-semibold text-bento-ink min-w-[120px] text-center"
+                      >
+                        {statusOptions.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
 
@@ -398,7 +409,7 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                             <div key={a.id} className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
                               <Bell className="w-4 h-4 text-amber-600 shrink-0" />
                               <span className="flex-1 text-sm text-amber-900 truncate">
-                                <span className="font-semibold">{STATUS_LABELS[a.status]}</span>
+                                <span className="font-semibold">{getStatusLabel(a.status)}</span>
                                 <span className="opacity-70"> → {notifyUser?.name || a.email}</span>
                               </span>
                               <button
@@ -422,8 +433,8 @@ export default function CreateTaskModal({ isOpen, onClose, sprintId, initialStat
                           onChange={(e) => setAlertStatus(e.target.value as TaskStatus)}
                           className="w-full px-3 py-2.5 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all text-sm text-bento-ink"
                         >
-                          {(Object.keys(STATUS_LABELS) as TaskStatus[]).map(s => (
-                            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                          {statusOptions.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
                           ))}
                         </select>
                       </div>

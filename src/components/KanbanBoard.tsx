@@ -372,6 +372,7 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
         currentUser={currentUser}
         users={users}
         editingTask={activeTask}
+        statusOptions={columns.map(({ id, name }) => ({ id, name }))}
       />
 
       <MoveTaskModal

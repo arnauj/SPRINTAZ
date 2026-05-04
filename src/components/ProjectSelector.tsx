@@ -376,8 +376,8 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
                         {sprintCountsByProject[project.id] || 0}
                       </span>
                     </div>
-                    <div className="min-w-0 flex-1 pr-28">
-                      <h3 className="font-bold text-bento-ink truncate text-lg">
+                    <div className="min-w-0 flex-1 pr-10 md:pr-28">
+                      <h3 className="font-bold text-bento-ink truncate text-base md:text-lg">
                         {project.name}
                       </h3>
                       {project.team ? (
@@ -452,7 +452,7 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
         )}
 
         {canManageProjects && (
-          <div className="flex gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center px-4">
             <input
               ref={importInputRef}
               type="file"
@@ -463,14 +463,14 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
             <button
               onClick={() => importInputRef.current?.click()}
               disabled={isImporting}
-              className="flex items-center gap-2 px-6 py-3 bg-white border border-bento-border text-bento-ink font-semibold rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border border-bento-border text-bento-ink font-semibold rounded-xl hover:bg-amber-50 hover:border-amber-400 transition-colors cursor-pointer disabled:opacity-50 text-sm md:text-base"
             >
               <Upload className="w-5 h-5" />
               {isImporting ? 'Importando...' : 'Importar Proyecto'}
             </button>
             <button
               onClick={handleOpenCreate}
-              className="flex items-center gap-2 px-6 py-3 bg-bento-ink text-white font-semibold rounded-xl hover:bg-black transition-colors cursor-pointer"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-bento-ink text-white font-semibold rounded-xl hover:bg-black transition-colors cursor-pointer text-sm md:text-base"
             >
               <Plus className="w-5 h-5" />
               Nuevo Proyecto

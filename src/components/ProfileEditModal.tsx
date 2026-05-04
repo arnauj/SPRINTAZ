@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
-import { requestNotificationPermissionAndToken } from '../lib/firebase';
+import { updatePassword } from 'firebase/auth';
+import { auth, requestNotificationPermissionAndToken } from '../lib/firebase';
 import { User } from '../types';
-import { X, ImageIcon, User as UserIcon, Upload, Bell } from 'lucide-react';
+import { X, ImageIcon, User as UserIcon, Upload, Bell, Lock, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface ProfileEditModalProps {
@@ -15,21 +16,56 @@ interface ProfileEditModalProps {
 export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: ProfileEditModalProps) {
   const [name, setName] = useState(user.name);
   const [photoURL, setPhotoURL] = useState(user.photoURL || '');
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [enablingPush, setEnablingPush] = useState(false);
   const [pushStatus, setPushStatus] = useState<'idle' | 'success' | 'error'>(user.fcmToken ? 'success' : 'idle');
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
       setName(user.name);
       setPhotoURL(user.photoURL || '');
+      setNewPassword('');
       setError(null);
+      setSuccessMsg(null);
       setPushStatus(user.fcmToken ? 'success' : 'idle');
     }
   }, [isOpen, user]);
+
+  const handlePasswordChange = async () => {
+    if (newPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+    setChangingPassword(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const firebaseUser = auth.currentUser;
+      if (firebaseUser) {
+        await updatePassword(firebaseUser, newPassword);
+        setSuccessMsg('Contraseña actualizada correctamente.');
+        setNewPassword('');
+      } else {
+        setError('No se pudo identificar al usuario actual.');
+      }
+    } catch (e: any) {
+      if (e.code === 'auth/requires-recent-login') {
+        setError('Por seguridad, esta operación requiere haber iniciado sesión recientemente. Cierra sesión e inicia de nuevo.');
+      } else {
+        setError('Error al cambiar la contraseña. Inténtalo de nuevo.');
+      }
+      console.error(e);
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const handleEnablePush = async () => {
     setEnablingPush(true);
@@ -208,6 +244,40 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
 
               <div>
                 <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
+                  Cambiar Contraseña
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Lock className="w-4 h-4 text-bento-mute absolute left-4 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Nueva contraseña"
+                      className="w-full pl-11 pr-11 py-3 bg-white border-2 border-bento-border focus:border-amber-400 rounded-xl outline-none transition-all font-medium text-bento-ink text-sm"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-bento-mute hover:text-bento-ink cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handlePasswordChange}
+                    disabled={changingPassword || newPassword.length < 6}
+                    className="px-4 py-3 bg-white border-2 border-bento-border hover:border-amber-400 rounded-xl outline-none transition-all font-bold text-bento-ink text-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {changingPassword ? '...' : 'Actualizar'}
+                  </button>
+                </div>
+                <p className="text-[10px] text-bento-mute italic mt-1.5 ml-1">Mínimo 6 caracteres. Sin confirmación por email.</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-bento-mute uppercase tracking-widest mb-1.5 ml-1">
                   Notificaciones Push
                 </label>
                 <div className="flex items-center gap-3">
@@ -235,6 +305,11 @@ export default function ProfileEditModal({ isOpen, onClose, user, onSaved }: Pro
               {error && (
                 <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2">
                   {error}
+                </p>
+              )}
+              {successMsg && (
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+                  {successMsg}
                 </p>
               )}
 

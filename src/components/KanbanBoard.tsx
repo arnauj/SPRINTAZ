@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import { Task, Sprint, User, TaskStatus, SprintStatus, Project } from '../types';
-import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell, CornerDownRight, Lock } from 'lucide-react';
+import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell, CornerDownRight, Lock, ArrowRightLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import CreateTaskModal from './CreateTaskModal';
+import MoveTaskModal from './MoveTaskModal';
 import { flattenStatuses, colorForStatus, defaultSprintStatuses } from '../lib/sprintStatuses';
 import { useConfirmDialog } from './ConfirmDialog';
 
@@ -60,6 +61,7 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [movingTask, setMovingTask] = useState<Task | null>(null);
 
   const columns = useMemo<ColumnConfig[]>(() => {
     const statuses = sprint.statuses && sprint.statuses.length > 0
@@ -142,19 +144,8 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
             return firebaseService.createNotification(userId, notificationMsg);
           } else {
             const subject = `[SPRINTAZ] ${task.name} → ${newLabel}`;
-            const html = `
-              <div style="font-family:Inter,system-ui,sans-serif;color:#2F2A24;max-width:560px">
-                <h2 style="margin:0 0 8px 0">Cambio de estado en una tarea</h2>
-                <p style="margin:0 0 16px 0;color:#8A8270">Sprint: <strong>${sprint.name}</strong></p>
-                <div style="border:1px solid #E7E2D7;padding:16px;background:#FBFAF6">
-                  <p style="margin:0 0 8px 0;font-size:18px"><strong>${task.name}</strong></p>
-                  ${task.description ? `<p style="margin:0 0 12px 0;color:#555">${task.description}</p>` : ''}
-                  <p style="margin:0">Nuevo estado: <strong>${newLabel}</strong></p>
-                  <p style="margin:8px 0 0 0;color:#8A8270;font-size:12px">Movida por ${currentUser.name}</p>
-                </div>
-              </div>
-            `;
-            return firebaseService.sendEmail(a.email, subject, html);
+            console.log(`Email alert would be sent to ${a.email} with subject: ${subject}`);
+            return Promise.resolve();
           }
         })
       );
@@ -354,6 +345,7 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
                       onStatusChange={(status) => handleStatusChange(task, status)}
                       onDelete={() => handleDelete(task)}
                       onEdit={() => handleEdit(task)}
+                      onMoveToSprint={() => setMovingTask(task)}
                     />
                   ))}
                 </AnimatePresence>
@@ -380,6 +372,13 @@ export default function KanbanBoard({ sprint, project, currentUser, users, onBac
         users={users}
         editingTask={editingTask}
       />
+
+      <MoveTaskModal
+        isOpen={movingTask !== null}
+        onClose={() => setMovingTask(null)}
+        task={movingTask}
+        currentProject={project}
+      />
     </div>
     {confirmDialog}
     </>
@@ -397,6 +396,7 @@ interface TaskCardProps {
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
   onEdit: () => void;
+  onMoveToSprint: () => void;
 }
 
 function noteTextColor(bg: string): string {
@@ -419,7 +419,7 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function TaskCard({ task, users, column, columns, canModify, onDragStart, onStatusChange, onDelete, onEdit }: TaskCardProps) {
+function TaskCard({ task, users, column, columns, canModify, onDragStart, onStatusChange, onDelete, onEdit, onMoveToSprint }: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -524,6 +524,18 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
                       → {col.name}
                     </button>
                   ))}
+                  {canModify && (
+                    <button
+                      onClick={() => {
+                        onMoveToSprint();
+                        setShowOptions(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-[11px] font-bold text-amber-600 hover:bg-amber-50 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <ArrowRightLeft className="w-3 h-3" />
+                      Mover a Sprint
+                    </button>
+                  )}
                 </motion.div>
               </>
             )}

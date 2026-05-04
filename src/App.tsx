@@ -486,11 +486,11 @@ export default function App() {
               setActiveProject(null);
               didAutoSelectProject.current = true;
             }}
-            className="h-8 w-8 md:h-9 md:w-9 bg-bento-ink rounded-lg flex items-center justify-center font-bold text-white shrink-0 hover:bg-black transition-colors cursor-pointer"
+            className="h-9 w-9 md:h-10 md:w-10 bg-bento-ink rounded-xl flex items-center justify-center shrink-0 hover:bg-black transition-colors cursor-pointer shadow-sm overflow-hidden p-1.5"
             title="SPRINTAZ"
             aria-label="Inicio"
           >
-            Z
+            <img src="/icon.svg" className="w-full h-full object-contain brightness-0 invert" alt="" />
           </button>
           <h1 className="text-base font-bold tracking-tight shrink-0 hidden sm:block">SPRINTAZ</h1>
           {activeProject ? (

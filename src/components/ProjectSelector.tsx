@@ -338,8 +338,8 @@ export default function ProjectSelector({ currentUser, users, onSelectProject }:
 
   return (
     <>
-    <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-center p-6">
-      <div className="max-w-2xl w-full">
+    <div className="h-full bg-white/70 border border-bento-border flex flex-col items-center justify-start overflow-y-auto p-4 md:p-6">
+      <div className="max-w-2xl w-full py-4 md:py-6">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -383,5 +383,18 @@ export const firebaseService = {
     return onSnapshot(q, (snapshot) => {
       callback(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification)));
     }, (e) => handleFirestoreError(e, OperationType.LIST, 'notifications'));
+  },
+
+  async markNotificationsAsRead(notificationIds: string[]) {
+    if (notificationIds.length === 0) return;
+    try {
+      await Promise.all(
+        notificationIds.map(notificationId =>
+          updateDoc(doc(db, 'notifications', notificationId), { read: true })
+        )
+      );
+    } catch (e) {
+      handleFirestoreError(e, OperationType.WRITE, 'notifications:markAsRead');
+    }
   }
 };

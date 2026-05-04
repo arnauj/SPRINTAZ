@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { firebaseService } from '../services/firebaseService';
 import type { Notification as AppNotification } from '../types';
-import { Bell, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function NotificationBell({ userId }: { userId: string }) {
@@ -60,6 +60,15 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const handleClose = () => setShowDropdown(false);
+
+  const handleMarkAllAsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    if (unreadIds.length === 0) return;
+    await firebaseService.markNotificationsAsRead(unreadIds);
+  };
+
+
   return (
     <div className="relative">
       <button
@@ -93,13 +102,34 @@ export default function NotificationBell({ userId }: { userId: string }) {
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               className="fixed md:absolute left-2 right-2 md:left-auto md:right-0 top-16 md:mt-3 w-auto md:w-96 bg-white border border-bento-border shadow-xl z-[1001] overflow-hidden max-h-[70vh] md:max-h-[28rem]"
             >
-              <div className="px-4 py-3 md:py-3 border-b border-bento-border flex items-center justify-between bg-slate-50 sticky top-0">
-                <span className="text-sm md:text-xs font-bold uppercase tracking-widest text-bento-ink">Notificaciones</span>
-                {unreadCount > 0 && (
-                  <span className="text-[11px] md:text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full">
-                    {unreadCount} nuevas
-                  </span>
-                )}
+              <div className="px-4 py-3 md:py-3 border-b border-bento-border bg-slate-50 sticky top-0 space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm md:text-xs font-bold uppercase tracking-widest text-bento-ink">Notificaciones</span>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <span className="text-[11px] md:text-[10px] bg-rose-500 text-white font-bold px-2 py-0.5 rounded-full">
+                        {unreadCount} nuevas
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      className="p-1.5 rounded-md border border-bento-border bg-white hover:bg-slate-100 text-slate-600"
+                      aria-label="Cerrar notificaciones"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleMarkAllAsRead}
+                  disabled={unreadCount === 0}
+                  className="w-full text-xs md:text-[11px] font-semibold px-3 py-2 border border-bento-border rounded-md bg-white hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Marcar todas como leídas
+                </button>
               </div>
 
               <div className="max-h-[60vh] md:max-h-96 overflow-y-auto custom-scrollbar">

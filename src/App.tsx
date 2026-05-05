@@ -576,7 +576,7 @@ export default function App() {
           >
             <img src="/SPRINTAZ/icon-512.png" className="w-full h-full object-contain " alt="" />
           </button>
-          <div className="hidden sm:flex shrink-0 flex-col leading-tight">
+          <div className="flex shrink-0 flex-col leading-tight">
             <h1 className="text-base font-bold tracking-tight">SPRINTAZ</h1>
             <p className="text-[10px] text-bento-mute font-medium">
               Atualizado: {lastCodeUpdate}

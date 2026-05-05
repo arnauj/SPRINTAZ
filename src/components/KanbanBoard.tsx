@@ -130,6 +130,9 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
 
   const orderedTasks = useMemo(() => {
     return [...tasks].sort((a, b) => {
+      const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+      const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
       return taskCreatedMillis(a) - taskCreatedMillis(b);
     });
   }, [tasks]);
@@ -140,6 +143,29 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
       return status ? { ...task, status } : task;
     });
   }, [orderedTasks, optimisticStatuses]);
+
+  const statusNeedsUnassigned = (status: TaskStatus) => status === 'backlog' || status === 'todo';
+
+  const computeOrderForDrop = (status: TaskStatus, index: number, excludeTaskId?: string) => {
+    const tasksInStatus = visibleTasks
+      .filter(t => t.status === status && t.id !== excludeTaskId)
+      .sort((a, b) => {
+        const orderA = typeof a.order === 'number' ? a.order : Number.MAX_SAFE_INTEGER;
+        const orderB = typeof b.order === 'number' ? b.order : Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+        return taskCreatedMillis(a) - taskCreatedMillis(b);
+      });
+
+    const prev = tasksInStatus[index - 1];
+    const next = tasksInStatus[index];
+    const prevOrder = typeof prev?.order === 'number' ? prev.order : undefined;
+    const nextOrder = typeof next?.order === 'number' ? next.order : undefined;
+
+    if (prevOrder !== undefined && nextOrder !== undefined) return (prevOrder + nextOrder) / 2;
+    if (prevOrder !== undefined) return prevOrder + 1;
+    if (nextOrder !== undefined) return nextOrder - 1;
+    return index;
+  };
 
   const handleStatusChange = async (
     task: Task,
@@ -157,11 +183,16 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     const newLabel = statusConfig?.name || newStatus;
     let message = `Tarea "${task.name}" movida a ${newLabel}`;
 
-    if (newStatus === 'in_progress') {
+    if (statusNeedsUnassigned(newStatus)) {
+      updates.assignedTo = null;
+      updates.finishedBy = null;
+    } else if (newStatus === 'in_progress') {
       updates.assignedTo = currentUser.uid;
+      updates.finishedBy = null;
       message = `🚀 @${currentUser.name} ha comenzado: ${task.name}`;
     } else if (newStatus === 'done') {
       updates.finishedBy = currentUser.uid;
+      if (!task.assignedTo) updates.assignedTo = currentUser.uid;
       message = `✅ @${currentUser.name} ha terminado: ${task.name}`;
     }
 
@@ -244,16 +275,22 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     if (isClosed) return;
     const { destination, source, draggableId } = result;
     if (!destination) return;
-    if (destination.droppableId === source.droppableId) return;
 
     const task = orderedTasks.find(t => t.id === draggableId);
     if (!task || !canModify(task)) return;
 
     const targetStatus = destination.droppableId;
-    setOptimisticStatuses(current => ({ ...current, [task.id]: targetStatus }));
+    const targetOrder = computeOrderForDrop(targetStatus, destination.index, task.id);
 
     try {
-      await handleStatusChange(task, targetStatus);
+      if (destination.droppableId === source.droppableId) {
+        if (destination.index === source.index) return;
+        await firebaseService.updateTask(task.id, { order: targetOrder });
+        return;
+      }
+
+      setOptimisticStatuses(current => ({ ...current, [task.id]: targetStatus }));
+      await handleStatusChange(task, targetStatus, { order: targetOrder });
     } catch {
       setOptimisticStatuses(current => {
         const next = { ...current };

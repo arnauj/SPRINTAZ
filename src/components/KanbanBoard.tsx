@@ -318,7 +318,12 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
 
   const canModify = (task: Task) => {
     if (isClosed) return false;
-    return currentUser.role === 'Admin' || currentUser.role === 'Teacher' || task.createdBy === currentUser.uid;
+    if (currentUser.role === 'Admin' || currentUser.role === 'Teacher') return true;
+    if (task.createdBy) return task.createdBy === currentUser.uid;
+
+    // Backward compatibility: legacy tasks may not have `createdBy` populated.
+    // In that case, allow collaborators to move/update them instead of blocking DnD.
+    return currentUser.role === 'Collaborator';
   };
 
   const getTasksByStatus = (status: TaskStatus) => visibleTasks.filter(t => t.status === status);
@@ -671,7 +676,7 @@ function TaskCard({
                   className="absolute right-0 top-7 w-40 bg-white border border-bento-border shadow-xl z-20 overflow-hidden"
                   style={{ color: '#1F2937' }}
                 >
-                  {columns.filter(c => c.id !== task.status).map(col => (
+                  {canModify && columns.filter(c => c.id !== task.status).map(col => (
                     <button
                       key={col.id}
                       data-no-drag="true"
@@ -841,4 +846,3 @@ function TaskCard({
     </Draggable>
   );
 }
-

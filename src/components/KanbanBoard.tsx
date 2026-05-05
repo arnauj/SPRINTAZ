@@ -1,4 +1,7 @@
-import { useState, useEffect, useMemo, type DragEvent } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import type { DropResult } from '@hello-pangea/dnd';
 import { firebaseService } from '../services/firebaseService';
 import { sendTaskStatusEmailAlert } from '../services/emailAlertService';
 import { Task, Sprint, User, TaskStatus, SprintStatus, Project } from '../types';
@@ -58,12 +61,21 @@ function daysUntil(end?: string): number | null {
   return diff;
 }
 
+function taskCreatedMillis(task: Task): number {
+  const createdAt = task.createdAt;
+  if (!createdAt) return 0;
+  if (typeof createdAt.toMillis === 'function') return createdAt.toMillis();
+  if (typeof createdAt.seconds === 'number') return createdAt.seconds * 1000;
+  return 0;
+}
+
 export default function KanbanBoard({ sprint, project, currentUser, users, activeTask, onSetActiveTask, onBack }: KanbanBoardProps) {
   const { confirm, confirmDialog } = useConfirmDialog();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<TaskStatus>('todo');
   const [movingTask, setMovingTask] = useState<Task | null>(null);
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, TaskStatus>>({});
 
   const columns = useMemo<ColumnConfig[]>(() => {
     const statuses = sprint.statuses && sprint.statuses.length > 0
@@ -98,13 +110,46 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     return () => unsubscribe();
   }, [sprint.id]);
 
+  useEffect(() => {
+    setOptimisticStatuses(current => {
+      const confirmedIds = Object.entries(current)
+        .filter(([taskId, status]) => tasks.some(task => task.id === taskId && task.status === status))
+        .map(([taskId]) => taskId);
+
+      if (confirmedIds.length === 0) return current;
+
+      const next = { ...current };
+      confirmedIds.forEach(taskId => {
+        delete next[taskId];
+      });
+      return next;
+    });
+  }, [tasks]);
+
   const isClosed = !!sprint.isClosed;
 
-  const handleStatusChange = async (task: Task, newStatus: TaskStatus) => {
-    if (isClosed) return;
-    if (task.status === newStatus) return;
+  const orderedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      return taskCreatedMillis(a) - taskCreatedMillis(b);
+    });
+  }, [tasks]);
 
-    const updates: Partial<Task> = { status: newStatus };
+  const visibleTasks = useMemo(() => {
+    return orderedTasks.map(task => {
+      const status = optimisticStatuses[task.id];
+      return status ? { ...task, status } : task;
+    });
+  }, [orderedTasks, optimisticStatuses]);
+
+  const handleStatusChange = async (
+    task: Task,
+    newStatus: TaskStatus,
+    extraUpdates: Partial<Task> = {}
+  ) => {
+    if (isClosed) return;
+    if (task.status === newStatus && Object.keys(extraUpdates).length === 0) return;
+
+    const updates: Partial<Task> = { status: newStatus, ...extraUpdates };
     const previousStatus = task.status;
     const previousStatusConfig = columns.find(s => s.id === previousStatus);
     const statusConfig = (sprint.statuses || []).find(s => s.id === newStatus);
@@ -195,23 +240,26 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     }
   };
 
-  const handleDragStart = (e: DragEvent, task: Task) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('taskId', task.id);
-  };
-
-  const handleDragOver = (e: DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = async (e: DragEvent, newStatus: TaskStatus) => {
-    e.preventDefault();
+  const onDragEnd = async (result: DropResult) => {
     if (isClosed) return;
-    const taskId = e.dataTransfer.getData('taskId');
-    const task = tasks.find(t => t.id === taskId);
-    if (task && task.status !== newStatus) {
-      await handleStatusChange(task, newStatus);
+    const { destination, source, draggableId } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId) return;
+
+    const task = orderedTasks.find(t => t.id === draggableId);
+    if (!task || !canModify(task)) return;
+
+    const targetStatus = destination.droppableId;
+    setOptimisticStatuses(current => ({ ...current, [task.id]: targetStatus }));
+
+    try {
+      await handleStatusChange(task, targetStatus);
+    } catch {
+      setOptimisticStatuses(current => {
+        const next = { ...current };
+        delete next[task.id];
+        return next;
+      });
     }
   };
 
@@ -236,7 +284,7 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     return currentUser.role === 'Admin' || currentUser.role === 'Teacher' || task.createdBy === currentUser.uid;
   };
 
-  const getTasksByStatus = (status: TaskStatus) => tasks.filter(t => t.status === status);
+  const getTasksByStatus = (status: TaskStatus) => visibleTasks.filter(t => t.status === status);
 
   const remaining = daysUntil(sprint.endDate);
   const range = formatRange(sprint.startDate, sprint.endDate);
@@ -309,99 +357,111 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
         </div>
       </header>
 
-      <div
-        className="flex-1 flex md:grid gap-3 md:gap-4 h-full min-h-0 overflow-x-auto snap-x snap-mandatory md:snap-none pb-2 md:pb-0"
-        style={{
-          gridTemplateColumns:
-            columns.length <= 4
-              ? `repeat(${columns.length}, minmax(0, 1fr))`
-              : `repeat(${columns.length}, minmax(220px, 1fr))`,
-        }}
-      >
-        {columns.map((column) => {
-          const count = getTasksByStatus(column.id).length;
-          const isSub = !!column.parentId;
-          return (
-            <div
-              key={column.id}
-              className={`flex flex-col min-h-0 overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center ${isSub ? 'md:border-l-2' : ''}`}
-              style={{
-                backgroundColor: column.tintSoft,
-                ...(isSub ? { borderLeftColor: column.countDot } : {}),
-              }}
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, column.id)}
-            >
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div
+          className="flex-1 flex md:grid gap-3 md:gap-4 h-full min-h-0 overflow-x-auto snap-x snap-mandatory md:snap-none pb-2 md:pb-0"
+          style={{
+            gridTemplateColumns:
+              columns.length <= 4
+                ? `repeat(${columns.length}, minmax(0, 1fr))`
+                : `repeat(${columns.length}, minmax(220px, 1fr))`,
+          }}
+        >
+          {columns.map((column) => {
+            const columnTasks = getTasksByStatus(column.id);
+            const count = columnTasks.length;
+            const isSub = !!column.parentId;
+            return (
               <div
-                className="relative px-4 md:px-5 py-3 flex flex-col items-center justify-center gap-0.5"
-                style={{ backgroundColor: column.tint }}
+                key={column.id}
+                className={`flex flex-col min-h-0 overflow-hidden shrink-0 w-[85vw] sm:w-[70vw] md:w-auto snap-center ${isSub ? 'md:border-l-2' : ''}`}
+                style={{
+                  backgroundColor: column.tintSoft,
+                  ...(isSub ? { borderLeftColor: column.countDot } : {}),
+                }}
               >
-                {isSub && column.parentName && (
-                  <div
-                    className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-widest opacity-70"
-                    style={{ color: column.ink }}
-                  >
-                    <CornerDownRight className="w-2.5 h-2.5" />
-                    <span className="truncate max-w-[10rem]">{column.parentName}</span>
+                <div
+                  className="relative px-4 md:px-5 py-3 flex flex-col items-center justify-center gap-0.5"
+                  style={{ backgroundColor: column.tint }}
+                >
+                  {isSub && column.parentName && (
+                    <div
+                      className="flex items-center gap-1 text-[9px] uppercase font-bold tracking-widest opacity-70"
+                      style={{ color: column.ink }}
+                    >
+                      <CornerDownRight className="w-2.5 h-2.5" />
+                      <span className="truncate max-w-[10rem]">{column.parentName}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <h3
+                      className="text-sm font-bold tracking-tight"
+                      style={{ color: column.ink }}
+                    >
+                      {column.name}
+                    </h3>
+                    <span
+                      className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white"
+                      style={{ backgroundColor: column.countDot }}
+                    >
+                      {count}
+                    </span>
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <h3
-                    className="text-sm font-bold tracking-tight"
-                    style={{ color: column.ink }}
-                  >
-                    {column.name}
-                  </h3>
-                  <span
-                    className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center text-white"
-                    style={{ backgroundColor: column.countDot }}
-                  >
-                    {count}
-                  </span>
+                  {!isClosed && (
+                    <button
+                      onClick={() => {
+                        setPendingStatus(column.id);
+                        setShowCreateModal(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-white/40 transition-colors cursor-pointer"
+                      style={{ color: column.ink }}
+                      aria-label={`Añadir a ${column.name}`}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-                {!isClosed && (
-                  <button
-                    onClick={() => {
-                      setPendingStatus(column.id);
-                      setShowCreateModal(true);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-lg hover:bg-white/40 transition-colors cursor-pointer"
-                    style={{ color: column.ink }}
-                    aria-label={`Añadir a ${column.name}`}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
 
-              <div className="flex-1 flex flex-col gap-4 p-4 overflow-y-auto custom-scrollbar">
-                <AnimatePresence initial={false}>
-                  {getTasksByStatus(column.id).map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      users={users}
-                      column={column}
-                      columns={columns}
-                      canModify={canModify(task)}
-                      onDragStart={(e) => handleDragStart(e, task)}
-                      onStatusChange={(status) => handleStatusChange(task, status)}
-                      onDelete={() => handleDelete(task)}
-                      onEdit={() => handleEdit(task)}
-                      onMoveToSprint={() => setMovingTask(task)}
-                    />
-                  ))}
-                </AnimatePresence>
-                {count === 0 && (
-                  <div className="text-center py-10 text-xs italic text-bento-ink/30">
-                    Sin tareas
-                  </div>
-                )}
+                <Droppable droppableId={column.id} isDropDisabled={isClosed}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`flex-1 flex flex-col gap-4 p-4 overflow-y-auto custom-scrollbar transition-colors ${
+                        snapshot.isDraggingOver ? 'brightness-95' : ''
+                      }`}
+                    >
+                      <AnimatePresence initial={false}>
+                        {columnTasks.map((task, index) => (
+                          <TaskCard
+                            key={task.id}
+                            task={task}
+                            index={index}
+                            users={users}
+                            column={column}
+                            columns={columns}
+                            canModify={canModify(task)}
+                            onStatusChange={(status) => handleStatusChange(task, status)}
+                            onDelete={() => handleDelete(task)}
+                            onEdit={() => handleEdit(task)}
+                            onMoveToSprint={() => setMovingTask(task)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                      {provided.placeholder}
+                      {count === 0 && (
+                        <div className="text-center py-10 text-xs italic text-bento-ink/30">
+                          Sin tareas
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Droppable>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      </DragDropContext>
 
       <CreateTaskModal
         isOpen={showCreateModal || activeTask !== null}
@@ -436,7 +496,7 @@ interface TaskCardProps {
   column: ColumnConfig;
   columns: ColumnConfig[];
   canModify: boolean;
-  onDragStart: (e: DragEvent) => void;
+  index: number;
   onStatusChange: (status: TaskStatus) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
   onEdit: () => void;
@@ -463,7 +523,18 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function TaskCard({ task, users, column, columns, canModify, onDragStart, onStatusChange, onDelete, onEdit, onMoveToSprint }: TaskCardProps) {
+function TaskCard({
+  task,
+  index,
+  users,
+  column,
+  columns,
+  canModify,
+  onStatusChange,
+  onDelete,
+  onEdit,
+  onMoveToSprint,
+}: TaskCardProps) {
   const [showOptions, setShowOptions] = useState(false);
   const assignedUser = users.find(u => u.uid === task.assignedTo);
   const finishedByUser = users.find(u => u.uid === task.finishedBy);
@@ -498,26 +569,32 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
   const alertCount = task.emailAlerts?.length || 0;
 
   return (
-    <motion.div
-      layout
-      draggable
-      onDragStart={onDragStart}
-      initial={{ opacity: 0, y: 10, rotate: rotation }}
-      animate={{ opacity: 1, y: 0, rotate: rotation }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      whileHover={{ y: -3, rotate: 0 }}
-      style={{
-        backgroundColor: noteBg,
-        color: ink,
-        zIndex: showOptions ? 50 : 'auto',
-        backdropFilter: 'blur(2px)',
-        WebkitBackdropFilter: 'blur(2px)',
-      }}
-      className="sticky-note cursor-move group p-4 pt-5"
-    >
-      <span className="note-tape" />
+    <Draggable draggableId={task.id} index={index} isDragDisabled={!canModify}>
+      {(provided, snapshot) => {
+        const taskCard = (
+          <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          style={{
+            ...provided.draggableProps.style,
+            backgroundColor: noteBg,
+            color: ink,
+            zIndex: snapshot.isDragging ? 1000 : showOptions ? 50 : 'auto',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            willChange: snapshot.isDragging ? 'transform' : undefined,
+            transform: snapshot.isDragging
+              ? `${provided.draggableProps.style?.transform || ''} rotate(${rotation}deg)`
+              : `rotate(${rotation}deg)`,
+          }}
+          className={`sticky-note select-none group p-4 pt-5 ${
+            snapshot.isDragging ? 'cursor-grabbing ring-2 ring-bento-ink/30 shadow-2xl' : 'cursor-grab'
+          }`}
+        >
+          <span className="note-tape" />
 
-      <div className="flex items-start gap-2 mb-1">
+          <div className="flex items-start gap-2 mb-1">
         <div
           className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold border shrink-0"
           style={{
@@ -537,6 +614,7 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
         <div className="flex items-center gap-1 shrink-0 relative">
           <button
             onClick={() => setShowOptions(!showOptions)}
+            onPointerDown={(e) => e.stopPropagation()}
             className="p-1 transition-all cursor-pointer opacity-70 hover:opacity-100"
             style={{ color: ink }}
             aria-label="Mover a otra columna"
@@ -548,7 +626,7 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
           <AnimatePresence>
             {showOptions && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} />
+                <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} data-no-drag="true" />
                 <motion.div
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -559,6 +637,7 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
                   {columns.filter(c => c.id !== task.status).map(col => (
                     <button
                       key={col.id}
+                      data-no-drag="true"
                       onClick={() => {
                         onStatusChange(col.id);
                         setShowOptions(false);
@@ -575,6 +654,7 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
                         setShowOptions(false);
                       }}
                       className="w-full text-left px-3 py-2 text-[11px] font-bold text-amber-600 hover:bg-amber-50 cursor-pointer flex items-center gap-1.5"
+                      data-no-drag="true"
                     >
                       <ArrowRightLeft className="w-3 h-3" />
                       Mover a Sprint
@@ -585,18 +665,18 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
             )}
           </AnimatePresence>
         </div>
-      </div>
+          </div>
 
-      {task.description && (
+          {task.description && (
         <p
           className="text-[11px] mt-1.5 line-clamp-2 leading-relaxed"
           style={{ color: ink, opacity: 0.75 }}
         >
           {task.description}
         </p>
-      )}
+          )}
 
-      {links.length > 0 && (
+          {links.length > 0 && (
         <div className="mt-2 flex flex-col gap-1">
           {links.slice(0, 3).map(l => (
             <a
@@ -621,9 +701,9 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
             </span>
           )}
         </div>
-      )}
+          )}
 
-      <div
+          <div
         className="mt-3 pt-2 flex items-center justify-between gap-2 border-t"
         style={{
           borderColor: isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)',
@@ -652,9 +732,10 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
           {canModify && (
             <>
               <button
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                draggable={false}
+              onClick={(e) => { e.stopPropagation(); onEdit(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              draggable={false}
                 className="p-1 hover:bg-black/10 transition-all cursor-pointer opacity-70 hover:opacity-100"
                 style={{ color: ink }}
                 aria-label="Editar tarea"
@@ -663,9 +744,10 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
                 <Pencil className="w-3.5 h-3.5" />
               </button>
               <button
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                onMouseDown={(e) => e.stopPropagation()}
-                draggable={false}
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              draggable={false}
                 className="p-1 hover:bg-rose-500/20 transition-all cursor-pointer opacity-70 hover:opacity-100"
                 style={{ color: ink }}
                 aria-label="Eliminar tarea"
@@ -713,8 +795,13 @@ function TaskCard({ task, users, column, columns, canModify, onDragStart, onStat
             )
           )}
         </div>
-      </div>
-    </motion.div>
+          </div>
+        </div>
+        );
+
+        return snapshot.isDragging ? createPortal(taskCard, document.body) : taskCard;
+      }}
+    </Draggable>
   );
 }
 

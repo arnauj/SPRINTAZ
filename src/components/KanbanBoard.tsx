@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, type DragEvent } from 'react';
 import { firebaseService } from '../services/firebaseService';
+import { sendTaskStatusEmailAlert } from '../services/emailAlertService';
 import { Task, Sprint, User, TaskStatus, SprintStatus, Project } from '../types';
 import { Plus, MoreHorizontal, Calendar, Trash2, Pencil, ArrowLeft, MessageSquare, Link as LinkIcon, Bell, CornerDownRight, Lock, ArrowRightLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -104,7 +105,10 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
     if (task.status === newStatus) return;
 
     const updates: Partial<Task> = { status: newStatus };
+    const previousStatus = task.status;
+    const previousStatusConfig = columns.find(s => s.id === previousStatus);
     const statusConfig = (sprint.statuses || []).find(s => s.id === newStatus);
+    const previousLabel = previousStatusConfig?.name || previousStatus;
     const newLabel = statusConfig?.name || newStatus;
     let message = `Tarea "${task.name}" movida a ${newLabel}`;
 
@@ -134,8 +138,46 @@ export default function KanbanBoard({ sprint, project, currentUser, users, activ
       Array.from(recipients).map(uid => firebaseService.createNotification(uid, message))
     );
 
+    const alertsToEmail = (task.emailAlerts || []).filter(a => a.status === newStatus);
+    const notificationMsg = `La tarea "${task.name}" llego a ${newLabel}`;
+
+    await Promise.all(
+      alertsToEmail.map(async (a) => {
+        if (a.email.startsWith('@')) {
+          const userId = a.email.slice(1);
+          const user = users.find(u => u.uid === userId);
+
+          await firebaseService.createNotification(userId, notificationMsg);
+
+          if (user?.email) {
+            await sendTaskStatusEmailAlert({
+              projectName: project.name,
+              taskName: task.name,
+              fromColumn: previousLabel,
+              toColumn: newLabel,
+              movedBy: currentUser.email || currentUser.name,
+              emailDestino: user.email,
+              message,
+            });
+          }
+
+          return;
+        }
+
+        await sendTaskStatusEmailAlert({
+          projectName: project.name,
+          taskName: task.name,
+          fromColumn: previousLabel,
+          toColumn: newLabel,
+          movedBy: currentUser.email || currentUser.name,
+          emailDestino: a.email,
+          message,
+        });
+      })
+    );
+
     const matchingAlerts = (task.emailAlerts || []).filter(a => a.status === newStatus);
-    if (matchingAlerts.length > 0) {
+    if (false && matchingAlerts.length > 0) {
       const notificationMsg = `📌 La tarea "${task.name}" llegó a ${newLabel}`;
 
       await Promise.all(

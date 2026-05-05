@@ -14,7 +14,7 @@ import {
 } from 'firebase/auth';
 import { auth, onForegroundMessage } from './lib/firebase';
 import { firebaseService } from './services/firebaseService';
-import { User, Sprint, Project } from './types';
+import { User, Sprint, Project, Task } from './types';
 import {
   LogOut,
   Layers,

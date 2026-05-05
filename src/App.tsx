@@ -41,6 +41,16 @@ import ProjectSelector from './components/ProjectSelector';
 
 type AuthMode = 'choose' | 'signin' | 'signup';
 
+function formatLastCodeUpdate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('es-ES', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 function authErrorMessage(err: unknown): string {
   const code = (err as AuthError)?.code || '';
   switch (code) {
@@ -66,6 +76,7 @@ function authErrorMessage(err: unknown): string {
 }
 
 export default function App() {
+  const lastCodeUpdate = formatLastCodeUpdate(__LAST_CODE_UPDATE__);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [navigationState, setNavigationState] = useState<{
@@ -565,7 +576,12 @@ export default function App() {
           >
             <img src="/SPRINTAZ/icon-512.png" className="w-full h-full object-contain " alt="" />
           </button>
-          <h1 className="text-base font-bold tracking-tight shrink-0 hidden sm:block">SPRINTAZ</h1>
+          <div className="hidden sm:flex shrink-0 flex-col leading-tight">
+            <h1 className="text-base font-bold tracking-tight">SPRINTAZ</h1>
+            <p className="text-[10px] text-bento-mute font-medium">
+              Atualizado: {lastCodeUpdate}
+            </p>
+          </div>
           {activeProject ? (
             <div className="flex items-center gap-1.5 min-w-0 flex-nowrap">
               <ChevronRight className="w-4 h-4 text-bento-mute shrink-0 hidden sm:block" />

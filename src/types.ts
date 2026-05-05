@@ -85,8 +85,8 @@ export interface Task {
   status: TaskStatus;
   order?: number;
   color?: string;
-  assignedTo?: string;
-  finishedBy?: string;
+  assignedTo?: string | null;
+  finishedBy?: string | null;
   createdBy: string;
   createdAt: any;
   updatedAt: any;

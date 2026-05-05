@@ -130,15 +130,18 @@ service cloud.firestore {
         && isValidTask(request.resource.data)
         && request.resource.data.get('createdAt', null) != null
         && !sprintIsClosed(request.resource.data.sprintId);
-      allow update: if isSignedIn() && isValidTask(request.resource.data) && request.resource.data.get('updatedAt', null) != null && !sprintIsClosed(resource.data.sprintId) && (
+      allow update: if isSignedIn()
+        && request.resource.data.get('updatedAt', null) != null
+        && !sprintIsClosed(resource.data.sprintId)
+        && (
         // Action: Assign Task
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedTo', 'status', 'updatedAt']) && request.resource.data.status == 'in_progress' && (request.resource.data.assignedTo == request.auth.uid || isTeacher())) ||
         // Action: Finalize Task
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finishedBy', 'status', 'updatedAt']) && request.resource.data.status == 'done') ||
         // Action: Move Task
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) && request.resource.data.status is string && request.resource.data.status.size() > 0) ||
         // Action: Edit Task Details (any subset of editable fields, including comments)
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'color', 'links', 'emailAlerts', 'comments', 'sprintId', 'updatedAt']) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'order', 'color', 'links', 'emailAlerts', 'comments', 'sprintId', 'updatedAt']) && isValidTask(request.resource.data) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
         // Action: Add/Remove Comments only (any signed-in user — kept for non-creator collaborators)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comments', 'updatedAt']))
       );

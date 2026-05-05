@@ -83,6 +83,7 @@ export interface Task {
   description: string;
   weight: number;
   status: TaskStatus;
+  order?: number;
   color?: string;
   assignedTo?: string;
   finishedBy?: string;

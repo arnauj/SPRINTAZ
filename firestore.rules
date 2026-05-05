@@ -134,12 +134,19 @@ service cloud.firestore {
         && request.resource.data.get('updatedAt', null) != null
         && !sprintIsClosed(resource.data.sprintId)
         && (
-        // Action: Assign Task
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assignedTo', 'status', 'updatedAt']) && request.resource.data.status == 'in_progress' && (request.resource.data.assignedTo == request.auth.uid || isTeacher())) ||
-        // Action: Finalize Task
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['finishedBy', 'status', 'updatedAt']) && request.resource.data.status == 'done') ||
-        // Action: Move Task
-        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) && request.resource.data.status is string && request.resource.data.status.size() > 0) ||
+        // Action: Move/Transition Task — single rule that covers status change, assignment,
+        // completion and reordering. The client writes any subset of these fields together
+        // (e.g. moving to in_progress sets status + assignedTo + finishedBy + order at once),
+        // so they must be allowed in combination. isValidTask still enforces that
+        // in_progress requires assignedTo and done requires finishedBy.
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTo', 'finishedBy', 'order', 'updatedAt'])
+          && isValidTask(request.resource.data)
+          && (
+            request.resource.data.get('assignedTo', null) == null ||
+            request.resource.data.get('assignedTo', null) == resource.data.get('assignedTo', null) ||
+            request.resource.data.get('assignedTo', null) == request.auth.uid ||
+            isTeacher()
+          )) ||
         // Action: Edit Task Details (any subset of editable fields, including comments)
         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'weight', 'description', 'order', 'color', 'links', 'emailAlerts', 'comments', 'sprintId', 'updatedAt']) && isValidTask(request.resource.data) && (isTeacher() || resource.data.createdBy == request.auth.uid)) ||
         // Action: Add/Remove Comments only (any signed-in user — kept for non-creator collaborators)

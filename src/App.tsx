@@ -13,6 +13,7 @@ import {
   type AuthError
 } from 'firebase/auth';
 import { auth, onForegroundMessage } from './lib/firebase';
+import { isFirebaseConfigured, missingFirebaseConfigKeys } from './lib/firebaseConfig';
 import { firebaseService } from './services/firebaseService';
 import { User, Sprint, Project, Task } from './types';
 import {
@@ -51,8 +52,30 @@ function formatLastCodeUpdate(value: string): string {
   }).format(date);
 }
 
+const FIREBASE_CONFIG_MESSAGE =
+  'La configuración de Firebase de esta app no es válida: Google rechaza la clave de API. ' +
+  'Hay que actualizar la configuración web (apiKey, authDomain, projectId, appId) en la ' +
+  'consola de Firebase y volver a desplegar.';
+
+function isFirebaseConfigErrorCode(code: string): boolean {
+  return (
+    // Firebase devuelve el código con el mensaje incrustado:
+    // "auth/api-key-not-valid.-please-pass-a-valid-api-key."
+    code.startsWith('auth/api-key-not-valid') ||
+    code === 'auth/invalid-api-key' ||
+    code === 'auth/app-deleted' ||
+    code === 'auth/configuration-not-found' ||
+    code === 'auth/project-not-found'
+  );
+}
+
 function authErrorMessage(err: unknown): string {
   const code = (err as AuthError)?.code || '';
+
+  if (isFirebaseConfigErrorCode(code)) {
+    return FIREBASE_CONFIG_MESSAGE;
+  }
+
   switch (code) {
     case 'auth/invalid-email': return 'Email no válido.';
     case 'auth/missing-password': return 'Introduce una contraseña.';
@@ -407,6 +430,12 @@ export default function App() {
             <p className="text-bento-mute text-sm md:text-base">Gestiona tus proyectos, sprints y tareas de forma ágil y colaborativa.</p>
           </div>
 
+          {!isFirebaseConfigured && (
+            <div className="text-left text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2">
+              Falta la configuración de Firebase ({missingFirebaseConfigKeys.join(', ')}). El inicio
+              de sesión no funcionará hasta completarla.
+            </div>
+          )}
           {authError && (
             <div className="text-left text-sm bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-3 py-2">
               {authError}

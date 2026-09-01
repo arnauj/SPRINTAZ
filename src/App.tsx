@@ -57,6 +57,11 @@ const FIREBASE_CONFIG_MESSAGE =
   'Hay que actualizar la configuración web (apiKey, authDomain, projectId, appId) en la ' +
   'consola de Firebase y volver a desplegar.';
 
+const FIREBASE_SOFT_DELETED_MESSAGE =
+  'El proyecto de Firebase se está restaurando tras haber sido eliminado. Google puede tardar ' +
+  'hasta 36 horas en reactivar todos los servicios (y de 1 a 3 días el acceso con Google). ' +
+  'Vuelve a intentarlo más tarde.';
+
 function isFirebaseConfigErrorCode(code: string): boolean {
   return (
     // Firebase devuelve el código con el mensaje incrustado:
@@ -71,6 +76,10 @@ function isFirebaseConfigErrorCode(code: string): boolean {
 
 function authErrorMessage(err: unknown): string {
   const code = (err as AuthError)?.code || '';
+
+  if (code === 'auth/project-soft-deleted') {
+    return FIREBASE_SOFT_DELETED_MESSAGE;
+  }
 
   if (isFirebaseConfigErrorCode(code)) {
     return FIREBASE_CONFIG_MESSAGE;

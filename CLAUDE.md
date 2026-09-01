@@ -40,7 +40,12 @@ Frontend-only React app whose entire backend is a Firebase project (Auth + Fires
 
 ## Firebase configuration
 
-Config is committed in `firebase-applet-config.json` (apiKey, projectId, and a non-default `firestoreDatabaseId` — `getFirestore(app, firebaseConfig.firestoreDatabaseId)` in `src/lib/firebase.ts`). The web `apiKey` is not a secret in Firebase; access control lives entirely in `firestore.rules`. Auth uses Google Sign-In via popup, and the deployment domain (e.g. `arnauj.github.io`) must be added to Firebase Auth → Authorized domains.
+`src/lib/firebaseConfig.ts` is the single source of truth: each field comes from a `VITE_FIREBASE_*` env var, falling back to the committed `firebase-applet-config.json` when the var is empty (`firestoreDatabaseId` defaults to `(default)`). Set the vars in `.env.local` locally and as repository *Variables* for the deploy workflow — that way the key/project can be rotated without a code change. The web `apiKey` is not a secret in Firebase; access control lives entirely in `firestore.rules`. Auth uses Google Sign-In via popup, and the deployment domain (e.g. `arnauj.github.io`) must be added to Firebase Auth → Authorized domains.
+
+`public/firebase-messaging-sw.js` has no config of its own — `requestNotificationPermissionAndToken` passes it in the service-worker registration query string, so there is nothing to keep in sync there.
+
+If sign-in fails with `auth/api-key-not-valid`, the key in use has been deleted/revoked in Google Cloud (or the whole Firebase project is gone). Verify with:
+`curl -s -X POST "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=<APIKEY>" -H 'Content-Type: application/json' -d '{"email":"a@b.c","password":"xxxxxxxx","returnSecureToken":true}'`. The only fix is a valid key from Firebase Console → Project settings → Your apps.
 
 Firestore rules live in `firestore.rules` but are **not** auto-deployed by the workflow — they must be applied manually in the Firebase console when changed.
 
